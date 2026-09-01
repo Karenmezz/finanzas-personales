@@ -1,0 +1,19 @@
+{
+  "campaigns": [],
+  "expenses": [],
+  "bills": [],
+  "monthColors": {
+    "01": "#fee2e2",
+    "02": "#ffedd5",
+    "03": "#fef3c7",
+    "04": "#dcfce7",
+    "05": "#d1fae5",
+    "06": "#cffafe",
+    "07": "#dbeafe",
+    "08": "#e0e7ff",
+    "09": "#ede9fe",
+    "10": "#fae8ff",
+    "11": "#fce7f3",
+    "12": "#f1f5f9"
+  }
+}
