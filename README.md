@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Finanzas personales
 
-## Getting Started
+Aplicación financiera para administrar campañas, pagos, cuentas, gastos y fechas de contenido. Está construida con Next.js, TypeScript, Tailwind CSS, Drizzle ORM y Turso/libSQL.
 
-First, run the development server:
+## Preparar el entorno local
+
+1. Instala las dependencias:
+
+```bash
+npm install
+```
+
+2. Crea `.env.local` en la raíz del proyecto:
+
+```env
+TURSO_DATABASE_URL=libsql://tu-base-de-datos.turso.io
+TURSO_AUTH_TOKEN=tu-token-privado
+```
+
+3. Aplica las migraciones:
+
+```bash
+npm run db:migrate
+```
+
+4. Inicia la aplicación:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Abre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+En desarrollo, la aplicación sincroniza Turso automáticamente y conserva una copia temporal en `localStorage` como respaldo.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Configurar el administrador
 
-## Learn More
+Genera un secreto de sesión:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run auth:secret
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Agrega a `.env.local` el resultado y una contraseña larga que solamente conozcas tú:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=tu-contraseña-larga-y-única
+SESSION_SECRET=el-resultado-del-comando
+```
 
-## Deploy on Vercel
+No compartas estos valores ni los configures con el prefijo `NEXT_PUBLIC_`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Comandos de base de datos
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run db:generate    # Genera una migración después de cambiar el esquema
+npm run db:migrate     # Aplica las migraciones pendientes
+npm run db:studio      # Abre el explorador visual de Drizzle
+npm run db:import-json # Importa el JSON privado local sin duplicar registros
+```
+
+`src/lib/imported-data.json`, `.env.local` y los archivos SQLite locales están ignorados por Git.
+
+## Publicación
+
+En producción configura las mismas variables privadas y activa `FINANCE_SYNC_ENABLED=true`. Todas las páginas y la ruta financiera requieren una sesión administrativa válida.

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { Bill, Campaign, Expense, FinanceData } from "@/lib/finance";
 import { initialData } from "@/lib/finance";
 
@@ -25,6 +25,7 @@ const storageKey = "creator-finance-data-excel-v6";
 let currentData = initialData;
 let hydrated = false;
 const listeners = new Set<() => void>();
+let remoteSaveQueue = Promise.resolve();
 
 function getSnapshot() {
   if (!hydrated && typeof window !== "undefined") {
@@ -64,14 +65,48 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-function saveData(nextData: FinanceData) {
+function queueRemoteSave(nextData: FinanceData) {
+  remoteSaveQueue = remoteSaveQueue
+    .catch(() => undefined)
+    .then(async () => {
+      const response = await fetch("/api/finance", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextData),
+      });
+      if (!response.ok) throw new Error("No fue posible sincronizar con Turso");
+    })
+    .catch((error) => console.error("El cambio quedó guardado localmente", error));
+}
+
+function saveData(nextData: FinanceData, syncRemote = true) {
   currentData = nextData;
   window.localStorage.setItem(storageKey, JSON.stringify(nextData));
   listeners.forEach((listener) => listener());
+  if (syncRemote) queueRemoteSave(nextData);
 }
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initialData);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadRemoteData() {
+      try {
+        const response = await fetch("/api/finance", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const remoteData = (await response.json()) as FinanceData;
+        saveData(remoteData, false);
+      } catch (error) {
+        if (!controller.signal.aborted) console.error("Se usará el respaldo local", error);
+      }
+    }
+    void loadRemoteData();
+    return () => controller.abort();
+  }, []);
 
   function update(updater: (current: FinanceData) => FinanceData) {
     saveData(updater(getSnapshot()));

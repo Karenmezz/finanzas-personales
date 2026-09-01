@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogoutButton } from "@/components/logout-button";
 
 const links = [
   ["Finanzas", "/"],
@@ -12,9 +13,11 @@ const links = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  if (pathname === "/login") return children;
+
   return (
-    <div className="min-h-screen bg-white text-slate-800 md:grid md:grid-cols-[240px_1fr]">
-      <aside className="border-b border-slate-200 bg-white p-5 text-slate-800 md:min-h-screen md:border-b-0 md:border-r">
+    <div className="min-h-screen bg-white text-slate-800 md:grid md:h-screen md:grid-cols-[240px_1fr] md:overflow-hidden">
+      <aside className="border-b border-slate-200 bg-white p-5 text-slate-800 md:h-screen md:border-b-0 md:border-r">
         <Link href="/" className="text-lg font-bold text-slate-950">Panel financiero</Link>
         <nav className="mt-5 grid grid-cols-3 gap-2 pb-1 md:flex md:flex-col" aria-label="Navegación principal">
           {links.map(([label, href]) => {
@@ -26,8 +29,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+        <LogoutButton />
       </aside>
-      <main className="min-w-0 p-5 sm:p-8">{children}</main>
+      <main className="min-w-0 p-5 sm:p-8 md:h-screen md:overflow-y-auto">{children}</main>
     </div>
   );
 }

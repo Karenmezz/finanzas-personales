@@ -15,8 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mi Finanzas",
-  description: "Control personal de campañas, ingresos y gastos",
+  title: "KarenMezz Finanzas",
+  description: "Campañas, fechas, pagos y gastos en un solo lugar",
+  icons: {
+    icon: [{ url: "/finance-logo.svg", type: "image/svg+xml" }],
+    shortcut: "/finance-logo.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
