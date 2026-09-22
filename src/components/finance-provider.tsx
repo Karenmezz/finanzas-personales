@@ -65,6 +65,10 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+function hasFinancialRecords(data: FinanceData) {
+  return data.campaigns.length > 0 || data.bills.length > 0 || data.expenses.length > 0;
+}
+
 function queueRemoteSave(nextData: FinanceData) {
   remoteSaveQueue = remoteSaveQueue
     .catch(() => undefined)
@@ -99,6 +103,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         });
         if (!response.ok) return;
         const remoteData = (await response.json()) as FinanceData;
+        const localData = getSnapshot();
+        if (!hasFinancialRecords(remoteData) && hasFinancialRecords(localData)) {
+          console.warn("Se conservó el respaldo local porque la base remota llegó vacía");
+          return;
+        }
         saveData(remoteData, false);
       } catch (error) {
         if (!controller.signal.aborted) console.error("Se usará el respaldo local", error);

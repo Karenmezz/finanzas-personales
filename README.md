@@ -31,7 +31,7 @@ npm run dev
 
 5. Abre [http://localhost:3000](http://localhost:3000).
 
-En desarrollo, la aplicación sincroniza Turso automáticamente y conserva una copia temporal en `localStorage` como respaldo.
+La aplicación sincroniza Turso automáticamente y conserva una copia temporal en `localStorage` como respaldo.
 
 ## Configurar el administrador
 
@@ -64,4 +64,4 @@ npm run db:import-json # Importa el JSON privado local sin duplicar registros
 
 ## Publicación
 
-En producción configura las mismas variables privadas y activa `FINANCE_SYNC_ENABLED=true`. Todas las páginas y la ruta financiera requieren una sesión administrativa válida.
+En producción configura las mismas variables privadas. Todas las páginas y la ruta financiera requieren una sesión administrativa válida.

@@ -20,16 +20,16 @@ import {
 import type { FinanceData } from "@/lib/finance";
 import { currency } from "@/lib/finance";
 
-const monthNames: Record<string, string> = {
-  "01": "Ene", "02": "Feb", "03": "Mar", "04": "Abr",
-  "05": "May", "06": "Jun", "07": "Jul", "08": "Ago",
-  "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dic",
-};
+const calendarMonths = [
+  ["01", "Ene"], ["02", "Feb"], ["03", "Mar"], ["04", "Abr"],
+  ["05", "May"], ["06", "Jun"], ["07", "Jul"], ["08", "Ago"],
+  ["09", "Sep"], ["10", "Oct"], ["11", "Nov"], ["12", "Dic"],
+] as const;
 const socialColors = ["#ec4899", "#8b5cf6", "#06b6d4", "#f97316", "#22c55e", "#ef4444", "#3b82f6"];
 const compact = new Intl.NumberFormat("es-CO", { notation: "compact", maximumFractionDigits: 1 });
 
 export function FinanceCharts({ data, year }: { data: FinanceData; year: number }) {
-  const monthly = Object.entries(monthNames).map(([month, name]) => {
+  const monthly = calendarMonths.map(([month, name]) => {
     const period = `${year}-${month}`;
     const campaigns = data.campaigns.filter((item) => item.month === period);
     const generated = campaigns.reduce((sum, item) => sum + item.value, 0);

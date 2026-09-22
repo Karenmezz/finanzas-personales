@@ -5,10 +5,6 @@ import { sessionCookieName, verifySessionToken } from "@/auth/session";
 
 export const runtime = "nodejs";
 
-function syncIsEnabled() {
-  return process.env.NODE_ENV === "development" || process.env.FINANCE_SYNC_ENABLED === "true";
-}
-
 async function isAdmin() {
   const cookieStore = await cookies();
   return verifySessionToken(cookieStore.get(sessionCookieName)?.value);
@@ -22,7 +18,6 @@ function isFinanceData(value: unknown): value is FinanceData {
 
 export async function GET() {
   if (!(await isAdmin())) return Response.json({ error: "No autorizado" }, { status: 401 });
-  if (!syncIsEnabled()) return Response.json({ error: "Sincronización deshabilitada" }, { status: 503 });
   try {
     return Response.json(await getFinanceData());
   } catch (error) {
@@ -33,7 +28,6 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   if (!(await isAdmin())) return Response.json({ error: "No autorizado" }, { status: 401 });
-  if (!syncIsEnabled()) return Response.json({ error: "Sincronización deshabilitada" }, { status: 503 });
   try {
     const data: unknown = await request.json();
     if (!isFinanceData(data)) return Response.json({ error: "Datos inválidos" }, { status: 400 });
