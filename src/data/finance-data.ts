@@ -3,7 +3,43 @@ import { db } from "@/db";
 import { bills, campaigns, expenses, monthColors, payments } from "@/db/schema";
 import type { FinanceData } from "@/lib/finance";
 
+const recurringServices = [
+  { name: "Arriendo", amount: 887000 },
+  { name: "Luz", amount: 36623 },
+  { name: "Gas", amount: 5400 },
+  { name: "Agua", amount: 69610 },
+  { name: "Wifi", amount: 69328 },
+  { name: "Datos", amount: 43250 },
+] as const;
+
+async function ensureRecurringServices() {
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear, currentYear + 1];
+  const existingBills = await db.select({ name: bills.name, dueDate: bills.dueDate }).from(bills);
+  const existingPeriods = new Set(existingBills.map((bill) => `${bill.name.trim().toLocaleLowerCase("es")}:${bill.dueDate.slice(0, 7)}`));
+  const missingBills = years.flatMap((year) =>
+    Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).flatMap((month) => {
+      const period = `${year}-${month}`;
+      return recurringServices
+        .filter((service) => !existingPeriods.has(`${service.name.toLocaleLowerCase("es")}:${period}`))
+        .map((service) => ({
+          id: `recurring-${period}-${service.name.toLocaleLowerCase("es")}`,
+          name: service.name,
+          category: "Servicios",
+          amount: service.amount,
+          dueDate: `${period}-10`,
+          paid: false,
+        }));
+    }),
+  );
+
+  if (missingBills.length > 0) {
+    await db.insert(bills).values(missingBills).onConflictDoNothing();
+  }
+}
+
 export async function getFinanceData(): Promise<FinanceData> {
+  await ensureRecurringServices();
   const [campaignRows, paymentRows, billRows, expenseRows, colorRows] = await Promise.all([
     db.select().from(campaigns),
     db.select().from(payments),

@@ -51,7 +51,7 @@ export default function CampaignsPage() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
                 <button className="button-secondary" disabled={pending === 0} onClick={() => registerPayment(campaign.id, pending)}>Registrar pago</button>
-                <button className="button-danger" onClick={() => deleteCampaign(campaign.id)}>🗑️ Eliminar</button>
+                <button className="button-danger" onClick={() => deleteCampaign(campaign.id)}>Eliminar</button>
                 <span className="ml-auto text-sm text-slate-500">Pago esperado: {campaign.dueDate}</span>
               </div>
             </article>
