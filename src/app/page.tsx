@@ -241,5 +241,5 @@ function PaymentDueReminder({ dueDate }: { dueDate: string }) {
       ? "border-amber-200 bg-amber-50 text-amber-800"
       : "border-sky-200 bg-sky-50 text-sky-800";
 
-  return <div className={`self-end rounded-xl border px-3 py-2 text-xs font-semibold ${tone}`}><p>{label}</p><p className="mt-0.5 font-normal opacity-80">Fecha: {formatContentDate(dueDate)}</p></div>;
+  return <div className={`w-full min-w-0 max-w-full self-end overflow-hidden rounded-xl border px-3 py-2 text-xs font-semibold ${tone}`}><p className="break-words">{label}</p><p className="mt-0.5 break-words font-normal opacity-80">Fecha: {formatContentDate(dueDate)}</p></div>;
 }
