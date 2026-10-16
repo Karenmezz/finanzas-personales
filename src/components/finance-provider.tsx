@@ -10,6 +10,7 @@ type FinanceContextValue = {
   updateCampaign: (id: string, changes: Partial<Campaign>) => void;
   deleteCampaign: (id: string) => void;
   addPayment: (campaignId: string, amount: number) => void;
+  removeLastPayment: (campaignId: string) => void;
   addExpense: (expense: Expense) => void;
   updateExpense: (id: string, changes: Partial<Expense>) => void;
   deleteExpense: (id: string) => void;
@@ -156,6 +157,15 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
                   },
                 ],
               }
+            : campaign,
+        ),
+      })),
+    removeLastPayment: (campaignId) =>
+      update((current) => ({
+        ...current,
+        campaigns: current.campaigns.map((campaign) =>
+          campaign.id === campaignId && campaign.payments.length > 0
+            ? { ...campaign, payments: campaign.payments.slice(0, -1) }
             : campaign,
         ),
       })),
