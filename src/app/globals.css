@@ -26,3 +26,10 @@ body {
   .button-danger { @apply inline-flex items-center justify-center rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:border-red-400 hover:bg-red-100; }
   .label { @apply mb-1 block text-sm font-medium text-slate-700; }
 }
+
+/* WebKit 301648: iOS adds date-input padding and borders outside width: 100%. */
+@supports (-webkit-touch-callout: none) {
+  [aria-label="Cobros pendientes de otros meses"] input[type="date"].field {
+    width: calc(100% - 1.5rem - 2px);
+  }
+}
