@@ -43,8 +43,3 @@ export const monthColors = sqliteTable("month_colors", {
   month: text("month").primaryKey(),
   color: text("color").notNull(),
 });
-
-export const financeSettings = sqliteTable("finance_settings", {
-  key: text("key").primaryKey(),
-  amount: integer("amount").notNull(),
-});

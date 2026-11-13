@@ -4,7 +4,6 @@ import { FormEvent, useState } from "react";
 import { useFinance } from "@/components/finance-provider";
 import { availableYears, createId, currency } from "@/lib/finance";
 import { previousPendingCampaigns } from "@/lib/finance-insights";
-import { SalarySettings } from "@/components/salary-settings";
 import { BrandRanking } from "@/components/brand-ranking";
 import { CollapsibleSection } from "@/components/collapsible-section";
 
@@ -134,7 +133,6 @@ export default function MonthsPage() {
     <section className="mb-6 rounded-3xl border p-6" style={{ borderColor: data.monthColors[selectedMonth], backgroundColor: `${data.monthColors[selectedMonth]}33` }}><div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold">{monthName} {selectedYear}</p><div className="flex items-center gap-2">{customizingColor && <><label htmlFor="month-color" className="sr-only">Color de {monthName}</label><input id="month-color" type="color" value={data.monthColors[selectedMonth]} onChange={(event) => updateMonthColor(selectedMonth, event.target.value)} className="h-8 w-10 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" /></>}<button className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50" onClick={() => setCustomizingColor(!customizingColor)}>{customizingColor ? "Listo" : "Personalizar"}</button></div></div><div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><MonthlyTotal label="Generado" value={generated} /><MonthlyTotal label="Recibido" value={received} /><MonthlyTotal label="Por cobrar" value={generated - received} warning /><MonthlyTotal label="Por pagar" value={pendingBillTotal + pendingExtraTotal} warning /></div></section>
     </CollapsibleSection>
 
-    <SalarySettings key={selectedPeriod} period={selectedPeriod} />
     <BrandRanking campaigns={campaigns} period={`${monthName} ${selectedYear}`} />
     <div className="grid gap-6 lg:grid-cols-2">
       <CollapsibleSection title="Dinero por cobrar">

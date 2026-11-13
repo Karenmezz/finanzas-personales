@@ -34,7 +34,6 @@ export type Bill = {
 };
 
 export type FinanceData = {
-  monthlySalary?: number;
   campaigns: Campaign[];
   expenses: Expense[];
   bills: Bill[];

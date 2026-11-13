@@ -22,9 +22,12 @@ export function brandRanking(campaigns: Campaign[]) {
   return [...brands.values()].sort((a, b) => b.received - a.received || b.agreed - a.agreed || a.brand.localeCompare(b.brand));
 }
 
-// Add only missing months, keeping existing amounts, dates and payment states.
+export const FOUNDATION_MONTHLY_SALARY = 3100000;
+
+// Preserve payment history while fixing unpaid salary amounts and filling missing months.
 export function withMonthlyDefaults(data: FinanceData, years: number[]): FinanceData {
-  const campaigns = [...data.campaigns];
+  const campaigns = data.campaigns.map((campaign) => isFoundationSalary(campaign) && campaign.payments.length === 0
+    ? { ...campaign, value: FOUNDATION_MONTHLY_SALARY } : campaign);
   const bills = [...data.bills];
   const salaries = data.campaigns.filter((campaign) => isFoundationSalary(campaign) && campaign.value > 0);
   const salary = [...salaries].sort((a, b) => {
@@ -32,7 +35,7 @@ export function withMonthlyDefaults(data: FinanceData, years: number[]): Finance
     const generated = Number(a.id.startsWith("recurring-salary-")) - Number(b.id.startsWith("recurring-salary-"));
     return generated || (b.month ?? b.dueDate.slice(0, 7)).localeCompare(a.month ?? a.dueDate.slice(0, 7));
   })[0];
-  const salaryAmount = data.monthlySalary ?? salary?.value;
+  const salaryAmount = FOUNDATION_MONTHLY_SALARY;
   const template: Campaign = salary ?? {
     id: "salary-template", name: "Salario", brand: "Fundación de la Mujer", network: "Otra",
     value: salaryAmount ?? 0, dueDate: "2000-01-28", status: "Realizado", payments: [],
@@ -60,18 +63,4 @@ export function previousPendingCampaigns(campaigns: Campaign[], selectedPeriod: 
     period: campaign.month ?? campaign.dueDate.slice(0, 7),
   })).filter((item) => item.period < selectedPeriod && item.pending > 0)
     .sort((a, b) => a.campaign.dueDate.localeCompare(b.campaign.dueDate));
-}
-
-export function configureMonthlySalary(data: FinanceData, amount: number, fromPeriod: string) {
-  if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("Ingresa un salario válido en pesos enteros");
-  const next = {
-    ...data,
-    monthlySalary: amount,
-    campaigns: data.campaigns.map((campaign) =>
-      isFoundationSalary(campaign) && (campaign.month ?? campaign.dueDate.slice(0, 7)) >= fromPeriod && campaign.payments.length === 0
-        ? { ...campaign, value: amount } : campaign),
-  };
-  const years = new Set([Number(fromPeriod.slice(0, 4)), new Date().getFullYear(), new Date().getFullYear() + 1]);
-  data.campaigns.forEach((campaign) => years.add(Number((campaign.month ?? campaign.dueDate).slice(0, 4))));
-  return withMonthlyDefaults(next, [...years].filter(Number.isFinite));
 }

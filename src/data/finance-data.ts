@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/db";
-import { bills, campaigns, expenses, monthColors, payments, financeSettings } from "@/db/schema";
+import { bills, campaigns, expenses, monthColors, payments } from "@/db/schema";
 import { availableYears } from "@/lib/finance";
 import { withMonthlyDefaults } from "@/lib/finance-insights";
 import type { FinanceData } from "@/lib/finance";
@@ -42,17 +42,15 @@ async function ensureRecurringServices() {
 
 export async function getFinanceData(): Promise<FinanceData> {
   await ensureRecurringServices();
-  const [campaignRows, paymentRows, billRows, expenseRows, colorRows, settingRows] = await Promise.all([
+  const [campaignRows, paymentRows, billRows, expenseRows, colorRows] = await Promise.all([
     db.select().from(campaigns),
     db.select().from(payments),
     db.select().from(bills),
     db.select().from(expenses),
     db.select().from(monthColors),
-    db.select().from(financeSettings),
   ]);
 
   const data: FinanceData = {
-    monthlySalary: settingRows.find((row) => row.key === "monthlySalary")?.amount,
     campaigns: campaignRows.map((campaign) => ({
       ...campaign,
       collaborationType: campaign.collaborationType ?? undefined,
@@ -66,10 +64,10 @@ export async function getFinanceData(): Promise<FinanceData> {
   const result = withMonthlyDefaults(data, availableYears(data));
   const existingCampaigns = new Set(data.campaigns.map((item) => item.id));
   const existingBills = new Set(data.bills.map((item) => item.id));
-  const missingCampaigns = result.campaigns.filter((item) => !existingCampaigns.has(item.id));
+  const missingCampaigns = result.campaigns.filter((item) => !existingCampaigns.has(item.id) || data.campaigns.find((saved) => saved.id === item.id)?.value !== item.value);
   const missingBills = result.bills.filter((item) => !existingBills.has(item.id));
   if (missingCampaigns.length) {
-    await db.insert(campaigns).values(missingCampaigns.map((campaign) => ({ id: campaign.id, name: campaign.name, brand: campaign.brand, network: campaign.network, collaborationType: campaign.collaborationType, month: campaign.month ?? campaign.dueDate.slice(0, 7), value: campaign.value, dueDate: campaign.dueDate, status: campaign.status }))).onConflictDoNothing();
+    await db.insert(campaigns).values(missingCampaigns.map((campaign) => ({ id: campaign.id, name: campaign.name, brand: campaign.brand, network: campaign.network, collaborationType: campaign.collaborationType, month: campaign.month ?? campaign.dueDate.slice(0, 7), value: campaign.value, dueDate: campaign.dueDate, status: campaign.status }))).onConflictDoUpdate({ target: campaigns.id, set: { value: 3100000 } });
   }
   if (missingBills.length) await db.insert(bills).values(missingBills).onConflictDoNothing();
   return result;
@@ -77,10 +75,6 @@ export async function getFinanceData(): Promise<FinanceData> {
 
 export async function replaceFinanceData(data: FinanceData) {
   await db.transaction(async (tx) => {
-    if (data.monthlySalary !== undefined) {
-      await tx.insert(financeSettings).values({ key: "monthlySalary", amount: data.monthlySalary })
-        .onConflictDoUpdate({ target: financeSettings.key, set: { amount: data.monthlySalary } });
-    }
     await tx.delete(payments);
     await tx.delete(campaigns);
     await tx.delete(bills);
