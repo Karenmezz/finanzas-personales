@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ProfileProvider } from "@/components/profile-provider";
 import { AppShell } from "@/components/app-shell";
 import { FinanceProvider } from "@/components/finance-provider";
 import "./globals.css";
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export const metadata: Metadata = {
-  title: "KarenMezz Finanzas",
+  title: "Mis finanzas",
   description: "Campañas, fechas, pagos y gastos en un solo lugar",
   icons: {
     icon: [{ url: "/finance-logo.svg", type: "image/svg+xml" }],
@@ -33,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full">
         <FinanceProvider>
-          <AppShell>{children}</AppShell>
+          <ProfileProvider><AppShell>{children}</AppShell></ProfileProvider>
         </FinanceProvider>
       </body>
     </html>

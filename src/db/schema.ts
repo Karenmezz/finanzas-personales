@@ -1,3 +1,4 @@
+import type { UserProfile } from "@/lib/profile";
 import type { CampaignBenefit, RecurringSettings } from "@/lib/finance";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
@@ -61,4 +62,9 @@ export const monthColors = sqliteTable("month_colors", {
 export const financeSettings = sqliteTable("finance_settings", {
   id: text("id").primaryKey(),
   value: text("value", { mode: "json" }).$type<RecurringSettings>().notNull(),
+});
+
+export const userProfile = sqliteTable("user_profile", {
+  id: text("id").primaryKey(),
+  value: text("value", { mode: "json" }).$type<UserProfile>().notNull(),
 });

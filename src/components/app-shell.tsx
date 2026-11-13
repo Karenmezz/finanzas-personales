@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ProfileGreeting } from "@/components/profile-greeting";
 import { LogoutButton } from "@/components/logout-button";
 import { NavigationIcon, type NavigationIconName } from "@/components/navigation-icon";
 
@@ -60,13 +61,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (pathname === "/login") return children;
 
   return <div className="min-h-screen bg-white text-slate-800 md:grid md:h-screen md:grid-cols-[240px_1fr] md:overflow-hidden">
-    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur md:hidden"><Link href="/" className="font-bold text-slate-950">Mis finanzas</Link><span className="text-xs font-medium text-slate-400">Tu espacio personal</span></header>
     <aside className="hidden flex-col border-r border-slate-200 bg-white p-5 md:flex md:h-screen" aria-label="Menú de escritorio">
       <Link href="/" className="text-lg font-bold text-slate-950">Mis finanzas</Link>
       <nav className="mt-6 flex flex-col gap-2 pb-1" aria-label="Navegación principal">{links.map(({label,href,icon}) => <Link key={href} href={href} aria-current={active(href) ? "page" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${active(href) ? "bg-slate-100 font-bold text-slate-950 shadow-sm" : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}><NavigationIcon name={icon} className="h-5 w-5 shrink-0" />{label}</Link>)}</nav>
       <LogoutButton />
     </aside>
-    <main className="app-main min-w-0 p-5 sm:p-8 md:h-screen md:overflow-y-auto">{children}</main>
+    <main className="app-main min-w-0 p-5 sm:p-8 md:h-screen md:overflow-y-auto"><ProfileGreeting />{children}</main>
     <nav className="mobile-bottom-nav md:hidden" aria-label="Navegación móvil">
       {mobileLinks.slice(0,2).map(({label,href,icon}) => <Link key={href} href={href} aria-current={active(href) ? "page" : undefined} className={`mobile-nav-item ${active(href) ? "mobile-nav-active" : ""}`}><NavigationIcon name={icon} className="h-[22px] w-[22px]" /><span>{href === "/dashboard" ? "Dashboard" : label}</span></Link>)}
       <button ref={createRef} type="button" className="mobile-nav-item mobile-create" aria-label="Agregar registro" aria-haspopup="dialog" aria-expanded={panel === "create"} aria-controls="mobile-actions" onClick={() => openPanel("create")}><span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-200 to-violet-300 text-violet-950 shadow-sm"><NavigationIcon name="plus" className="h-7 w-7" /></span><span>Agregar</span></button>

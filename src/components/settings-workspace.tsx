@@ -1,24 +1,26 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { ProfileSettings } from "@/components/profile-settings";
 import { useFinance } from "@/components/finance-provider";
 import { createId, currency, type RecurringRule } from "@/lib/finance";
 import { recurringVersion, todayInColombia, validateRecurringSettings } from "@/lib/recurring";
 
-export function SettingsWorkspace({ initialIncome = false }: { initialIncome?: boolean }) {
+export function SettingsWorkspace({ initialIncome = false, initialProfile = false }: { initialIncome?: boolean; initialProfile?: boolean }) {
   const { data, saveRecurringRule } = useFinance();
-  const [tab, setTab] = useState<"expense" | "income">(initialIncome ? "income" : "expense");
+  const [tab, setTab] = useState<"expense" | "income" | "profile">(initialProfile ? "profile" : initialIncome ? "income" : "expense");
   const [editing, setEditing] = useState<RecurringRule | "new" | null>(initialIncome ? "new" : null);
   const rules = data.recurring?.rules.filter((rule) => rule.kind === tab) ?? [];
   const today = todayInColombia();
   return <div className="mx-auto max-w-5xl">
-    <header className="mb-5"><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Mis finanzas</p><h1 className="mt-2 text-3xl font-bold">Configuración</h1><p className="mt-2 text-sm text-slate-500">Define lo que se repite cada mes. Puedes ajustar cada factura cuando llegue.</p></header>
-    <div role="tablist" aria-label="Configuración mensual" className="mb-4 flex rounded-xl border border-slate-200 bg-slate-50 p-1">{([['expense','Gastos fijos'],['income','Ingresos fijos']] as const).map(([id,label]) => <button key={id} role="tab" aria-selected={tab === id} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${tab === id ? "bg-white shadow-sm" : "text-slate-500"}`} onClick={() => { setTab(id); setEditing(null); }}>{label}</button>)}</div>
+    <header className="mb-5"><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Mis finanzas</p><h1 className="mt-2 text-3xl font-bold">Configuración</h1><p className="mt-2 text-sm text-slate-500">Personaliza tu perfil y organiza tus gastos e ingresos mensuales.</p></header>
+    <div role="tablist" aria-label="Secciones de Configuración" className="mb-4 flex rounded-xl border border-slate-200 bg-slate-50 p-1">{([['profile','Perfil'],['expense','Gastos fijos'],['income','Ingresos fijos']] as const).map(([id,label]) => <button key={id} role="tab" aria-selected={tab === id} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${tab === id ? "bg-white shadow-sm" : "text-slate-500"}`} onClick={() => { setTab(id); setEditing(null); }}>{label}</button>)}</div>
+    {tab === "profile" ? <ProfileSettings /> : <>
     <div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">{tab === "expense" ? "Gastos fijos mensuales" : "Ingresos fijos mensuales"}</h2><p className="mt-1 text-xs text-slate-500">{tab === "expense" ? "Fijo significa mensual; el valor puede cambiar." : "Configura aquí tu salario u otros ingresos recurrentes."}</p></div><button className="button shrink-0" onClick={() => setEditing(editing === "new" ? null : "new")}>+ Agregar</button></div>
     {editing && <RuleForm key={editing === "new" ? `new-${tab}` : editing.id} rule={editing === "new" ? undefined : editing} kind={tab} onSave={(rule) => { saveRecurringRule(rule); setEditing(null); }} onCancel={() => setEditing(null)} />}
     <div className="grid gap-3 lg:grid-cols-2">{rules.map((rule) => { const current = recurringVersion(rule, today.slice(0,7)) ?? [...rule.versions].sort((a,b) => a.from.localeCompare(b.from))[0]; const ended = rule.endOn && rule.endOn < today; return <article key={rule.id} className="card min-w-0" aria-label={`Configuración de ${rule.name}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="break-words font-bold">{rule.name}</h3><p className="mt-1 text-xs text-slate-500">{rule.category}</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${ended || !rule.enabled ? "bg-slate-100 text-slate-600" : "bg-emerald-50 text-emerald-700"}`}>{ended ? "Finalizado" : rule.enabled ? "Activo" : "Pausado"}</span></div><p className="mt-3 text-xl font-bold">{currency.format(current.amount)}<span className="ml-1 text-xs font-normal text-slate-500">/ mes</span></p><p className="mt-2 text-xs text-slate-500">Día {current.day} · Desde {rule.startOn}</p><p className="mt-1 text-xs text-slate-500">{rule.endOn ? `Hasta ${rule.endOn}` : "Sin fecha final"}</p>{rule.versions.filter((version) => version.from > today.slice(0,7)).map((version) => <p key={version.from} className="mt-1 text-xs text-indigo-700">Desde {version.from}: {currency.format(version.amount)} · día {version.day}</p>)}<div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3"><button className="button-secondary" onClick={() => setEditing(rule)}>Editar configuración</button>{!ended && <button className="button-secondary" onClick={() => saveRecurringRule({ ...rule, enabled: !rule.enabled })}>{rule.enabled ? "Pausar" : "Reactivar"}</button>}</div></article>; })}</div>
     {rules.length === 0 && <p className="card text-sm text-slate-500">Todavía no tienes {tab === "expense" ? "gastos" : "ingresos"} fijos. Al agregarlos empiezan desde la fecha que elijas, sin crear meses anteriores.</p>}
-    <p className="mt-4 text-xs leading-relaxed text-slate-500">Los cambios de configuración afectan registros pendientes del mes actual y siguientes. Los meses anteriores y los registros con pagos conservan sus valores. Desde Finanzas puedes ajustar un importe solo ese mes o también los siguientes. Los días 29, 30 y 31 se ajustan al último día en meses más cortos.</p>
+    <p className="mt-4 text-xs leading-relaxed text-slate-500">Los cambios de configuración afectan registros pendientes del mes actual y siguientes. Los meses anteriores y los registros con pagos conservan sus valores. Desde Finanzas puedes ajustar un importe solo ese mes o también los siguientes. Los días 29, 30 y 31 se ajustan al último día en meses más cortos.</p></>}
   </div>;
 }
 

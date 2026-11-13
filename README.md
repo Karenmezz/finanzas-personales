@@ -131,3 +131,11 @@ Se eliminó el archivo de datos personales precargados. Una instalación nueva e
 En pantallas menores de 768 px se muestra una barra inferior flotante con iconos y etiquetas: Dashboard, Finanzas, Agregar, Contenidos y Más. Agregar abre accesos a gasto, campaña, canje e ingreso mensual; cada acceso abre el formulario correspondiente y lleva a él, incluso al repetirlo en la misma página. Más reúne Movimientos, Configuración y cerrar sesión.
 
 Los paneles usan un diálogo nativo con foco contenido, cierre con Escape y devolución del foco al botón de origen; se cierran al cambiar a escritorio. La barra respeta el área segura del dispositivo y el contenido deja espacio inferior para seguir accesible al desplazarse. En escritorio se mantiene el menú lateral, ahora con iconos. La pantalla de acceso no muestra navegación.
+
+### Perfil y saludo
+
+En **Configuración → Perfil** se guardan el nombre para el saludo y una foto opcional. El saludo aparece en todas las secciones privadas; al tocar el avatar se abre Perfil. Primero se configura el nombre en la cuenta, sin precargarlo en el código. Sin foto se muestran la inicial del nombre o un icono.
+
+Se aceptan JPG, PNG y WebP de hasta 10 MB. El navegador centra y reduce la foto a un JPEG cuadrado de 256 px, sin enviar el archivo original. Se puede cambiar o quitar y confirmar con Guardar perfil. Nombre y foto se guardan mediante una API autenticada en `user_profile`, separados de los datos financieros, sin archivos personales en el repositorio ni almacenamiento público externo. Las respuestas del perfil son privadas y no se almacenan en caché.
+
+La fecha se muestra en español según Colombia y cambia al llegar la medianoche o volver a la aplicación. La migración `0004_rich_lila_cheney` crea la tabla de perfil sin modificar finanzas ni recurrencias. Ejecutar `npm run db:migrate` antes de desplegar.
