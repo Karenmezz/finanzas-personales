@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { MonthlyAmountForm } from "@/components/monthly-amount-form";
 import { CollaborationForm } from "@/components/collaboration-form";
-import { ContentCalendar } from "@/components/content-calendar";
 import { CampaignBenefitDetails } from "@/components/campaign-benefit-details";
 import { CampaignBenefitActions } from "@/components/campaign-benefit-actions";
 import { useRouter } from "next/navigation";
@@ -160,7 +159,6 @@ export function MonthlyWorkspace({ area, initialPeriod, initialEditId, initialCr
     </div>
 
     <div className="mt-6">
-      {isContent && <CollapsibleSection title="Calendario de contenido"><ContentCalendar campaigns={data.campaigns} period={selectedPeriod} onEdit={(campaign) => { if (isBarterCampaign(campaign)) router.push(`/contenidos/canjes?month=${campaign.month ?? selectedPeriod}&edit=${encodeURIComponent(campaign.id)}`); else { const period = campaign.month ?? campaign.dueDate.slice(0, 7); setSelectedYear(Number(period.slice(0, 4))); setSelectedMonth(period.slice(5, 7)); setHidePaidCampaigns(false); setEditingCampaign(campaign.id); } }} /></CollapsibleSection>}
       {!isContent && <CollapsibleSection title="Gastos extras">
     <section className="card">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Gastos extras</h2><p className="text-sm text-slate-500">Gastos adicionales de {monthName}</p></div><span className="font-semibold">{currency.format(expenseTotal)}</span></div>

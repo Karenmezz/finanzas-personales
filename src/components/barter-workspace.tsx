@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ContentNavigation } from "@/components/content-navigation";
-import { ContentCalendar } from "@/components/content-calendar";
 import { CollaborationForm } from "@/components/collaboration-form";
 import { CampaignBenefitDetails } from "@/components/campaign-benefit-details";
 import { CampaignBenefitActions } from "@/components/campaign-benefit-actions";
@@ -34,10 +33,6 @@ export function BarterWorkspace({ initialPeriod, initialEditId, initialCreating 
     if (!isBarterCampaign(campaign)) router.push(`/contenidos?month=${campaign.month}`);
     else if (period && campaign.month !== period) setPeriod(campaign.month ?? "");
   }
-  function editFromCalendar(campaign: Campaign) {
-    if (isBarterCampaign(campaign)) { setCreating(false); setEditingId(campaign.id); }
-    else router.push(`/contenidos?month=${campaign.month ?? (period || todayPeriod)}&edit=${encodeURIComponent(campaign.id)}`);
-  }
   return <div className="mx-auto max-w-7xl">
     <ContentNavigation />
     <header className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-wider text-slate-500">Contenidos</p><h1 className="mt-2 text-3xl font-bold">Canjes</h1><p className="mt-2 text-sm text-slate-500">Bonos y productos. La recepción del beneficio y el contenido se controlan por separado.</p></div><button className="button" onClick={() => { setEditingId(null); setCreating(!creating); }}>+ Nuevo canje</button></header>
@@ -48,11 +43,10 @@ export function BarterWorkspace({ initialPeriod, initialEditId, initialCreating 
     <div className="grid gap-4 lg:grid-cols-2">{visible.map((campaign) => <article key={campaign.id} className="card min-w-0" aria-label={`Canje ${campaign.name}`}>
       <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words font-bold">{campaign.name}</h2><p className="mt-1 text-xs text-slate-500">{campaign.brand} · {campaign.network} · {campaign.month}</p></div><span className="shrink-0 rounded-full bg-violet-100 px-2 py-1 text-[10px] font-semibold text-violet-800">Canje</span></div>
       <CampaignBenefitDetails campaign={campaign} />
-      <div className="mt-3 grid gap-3 sm:grid-cols-2"><label><span className="label">Estado del contenido</span><select className="field" aria-label={`Estado del contenido de ${campaign.name}`} value={campaign.status} onChange={(event) => updateCampaign(campaign.id, { status: event.target.value as Campaign["status"] })}><option value="Pendiente">Pendiente</option><option value="En producción">En producción</option><option value="Realizado">Publicado</option></select></label><div className="self-center"><p className="text-[11px] font-medium text-slate-500">Fecha para subir el video</p><p className={`mt-1 text-xs font-semibold ${campaign.contentDueDate ? "text-slate-700" : "text-amber-700"}`}>{campaign.contentDueDate ?? "Sin fecha definida"}</p></div></div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2"><label><span className="label">Estado del contenido</span><select className="field" aria-label={`Estado del contenido de ${campaign.name}`} value={campaign.status} onChange={(event) => updateCampaign(campaign.id, { status: event.target.value as Campaign["status"] })}><option value="Pendiente">Pendiente</option><option value="En producción">En producción</option><option value="Realizado">Publicado</option></select></label><div className="self-center"><p className="text-[11px] font-medium text-slate-500">Fecha de entrega</p><p className={`mt-1 text-xs font-semibold ${campaign.contentDueDate ? "text-slate-700" : "text-amber-700"}`}>{campaign.contentDueDate ?? "Sin fecha definida"}</p></div></div>
       <CampaignBenefitActions campaign={campaign} />
       <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3"><button className="button-secondary" onClick={() => { setCreating(false); setEditingId(campaign.id); }}>Editar</button><button className="button-danger" onClick={() => deleteCampaign(campaign.id)}>Eliminar</button></div>
     </article>)}</div>
     {visible.length === 0 && <p className="card text-sm text-slate-500">{selected.length === 0 ? "No hay canjes en este filtro. Agrega un bono o productos con Nuevo canje." : "No hay canjes pendientes. Puedes consultar los completados con el botón de arriba."}</p>}
-    <div className="mt-6"><ContentCalendar campaigns={content} period={period || todayPeriod} onEdit={editFromCalendar} /></div>
   </div>;
 }

@@ -141,3 +141,11 @@ Se aceptan JPG, PNG y WebP de hasta 10 MB. El navegador centra y reduce la foto 
 La fecha se muestra en español según Colombia y cambia al llegar la medianoche o volver a la aplicación. La migración `0004_rich_lila_cheney` crea la tabla de perfil sin modificar finanzas ni recurrencias. Ejecutar `npm run db:migrate` antes de desplegar.
 
 El endpoint autenticado del perfil prepara automáticamente su tabla si todavía no existe, sin tocar las tablas financieras. La inicialización es idempotente, comparte una operación por proceso y vuelve a intentarse si falla. La migración 0004 también usa `IF NOT EXISTS`, por lo que puede aplicarse después de esa preparación sin perder perfiles. Si falla la conexión al cargar el perfil, la vista permite **Volver a intentar** sin recargar toda la aplicación.
+
+### Calendario único de contenidos
+
+La barra superior de Contenidos permite deslizar entre **Campañas pagas**, **Calendario**, **Canjes** y **Marcas**. El único calendario está en `/contenidos/calendario` y solo se muestra al elegir esa pestaña; se retiraron los calendarios de las listas de campañas y canjes.
+
+Asigna **Fecha de entrega del contenido (opcional)** al crear o editar. El calendario reúne pagas, canjes y mixtas, incluso pagadas o publicadas, según la fecha de entrega y no el mes de cobro ni la fecha esperada de pago. Los registros sin fecha no generan eventos. Las fechas ya guardadas se conservan en el mismo campo existente, sin migración.
+
+Permite elegir mes, avanzar/retroceder y volver con Hoy. Tocar un día filtra su agenda; Ver todo el mes restaura todas las entregas. La cuadrícula se adapta a móvil sin desplazamiento horizontal y la agenda muestra todos los contenidos, aunque coincidan muchos el mismo día. Editar contenido permite ajustar los datos o mover/quitar la fecha desde esta vista, conservando pagos y beneficios.

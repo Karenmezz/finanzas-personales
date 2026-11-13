@@ -47,7 +47,7 @@ export function CollaborationForm({ campaign, period, defaultType = "Paga", embe
           : { kind: "voucher", description, amount: Number(form.get("voucherAmount")), usedAmount: Number(form.get("voucherUsed") ?? 0), expiresOn: String(form.get("voucherExpiry") || "") || undefined, received };
       }
       const contentDueDate = String(form.get("contentDueDate") || "");
-      if (contentDueDate && !isDateOnly(contentDueDate)) throw new Error("Revisa la fecha para subir el video");
+      if (contentDueDate && !isDateOnly(contentDueDate)) throw new Error("Revisa la fecha de entrega del contenido");
       const saved: Campaign = {
         ...campaign,
         id: campaign?.id ?? createId(), name: String(form.get("name")).trim(), brand: String(form.get("brand")).trim(), network: String(form.get("network")),
@@ -75,7 +75,7 @@ export function CollaborationForm({ campaign, period, defaultType = "Paga", embe
     <label><span className="label">Red social</span><select className="field" name="network" defaultValue={campaign?.network ?? "TikTok"}>{[...new Set(["TikTok", "Instagram", "TikTok y Instagram", "YouTube", "Uso de la marca", "Otra", ...(campaign?.network ? [campaign.network] : [])])].map((network) => <option key={network}>{network}</option>)}</select></label>
     <label><span className="label">Mes de la campaña</span><input className="field" name="month" type="month" defaultValue={campaign?.month ?? period} required /></label>
     <label><span className="label">Estado del contenido</span><select className="field" name="status" defaultValue={campaign?.status ?? "Pendiente"}><option value="Pendiente">Pendiente</option><option value="En producción">En producción</option><option value="Realizado">Publicado</option></select></label>
-    <label><span className="label">Fecha para subir el video (opcional)</span><input className="field" name="contentDueDate" type="date" defaultValue={campaign?.contentDueDate ?? ""} /><span className="mt-1 block text-[10px] text-slate-500">Puedes dejarla vacía y agregarla después.</span></label>
+    <label><span className="label">Fecha de entrega del contenido (opcional)</span><input className="field" name="contentDueDate" type="date" defaultValue={campaign?.contentDueDate ?? ""} /><span className="mt-1 block text-[10px] text-slate-500">Puedes dejarla vacía y agregarla después.</span></label>
     {kind !== "barter" && <><CampaignCurrencyFields key={campaign?.id ?? "new-money"} campaign={campaign} /><label><span className="label">Fecha esperada de pago</span><input className="field" name="dueDate" type="date" defaultValue={campaign?.dueDate ?? `${period}-28`} required /></label></>}
     {kind !== "paid" && <fieldset className="space-y-3 rounded-2xl border border-violet-100 bg-violet-50/50 p-3 sm:col-span-2 lg:col-span-3">
       <legend className="px-1 text-sm font-semibold text-violet-950">{kind === "mixed" ? "Beneficio adicional al pago" : "Qué recibes por el canje"}</legend>
