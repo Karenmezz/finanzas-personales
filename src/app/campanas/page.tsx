@@ -6,6 +6,8 @@ import { createId, currency } from "@/lib/finance";
 
 export default function CampaignsPage() {
   const { data, addCampaign, addPayment, deleteCampaign } = useFinance();
+  const [showPaid, setShowPaid] = useState(false);
+  const visibleCampaigns = data.campaigns.filter((campaign) => showPaid || campaign.payments.reduce((sum, payment) => sum + payment.amount, 0) < campaign.value);
   const [open, setOpen] = useState(false);
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -14,7 +16,7 @@ export default function CampaignsPage() {
     addCampaign({
       id: createId(), name: String(form.get("name")), brand: String(form.get("brand")),
       network: String(form.get("network")), value: Number(form.get("value")),
-      dueDate: String(form.get("dueDate")), status: "Pendiente", payments: [],
+      month: String(form.get("dueDate")).slice(0, 7), dueDate: String(form.get("dueDate")), status: "Pendiente", payments: [],
     });
     event.currentTarget.reset(); setOpen(false);
   }
@@ -29,6 +31,7 @@ export default function CampaignsPage() {
         <div><h1 className="text-3xl font-bold">Campañas</h1><p className="mt-2 text-slate-600">Controla colaboraciones y pagos parciales.</p></div>
         <button className="button" onClick={() => setOpen(!open)}>+ Nueva campaña</button>
       </header>
+      <button className="button-secondary mb-4" onClick={() => setShowPaid(!showPaid)}>{showPaid ? "Ocultar pagados" : "Mostrar pagados"}</button>
       {open && (
         <form onSubmit={submit} className="card mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <label><span className="label">Campaña</span><input className="field" name="name" required /></label>
@@ -40,7 +43,7 @@ export default function CampaignsPage() {
         </form>
       )}
       <div className="space-y-4">
-        {data.campaigns.map((campaign) => {
+        {visibleCampaigns.map((campaign) => {
           const received = campaign.payments.reduce((sum, payment) => sum + payment.amount, 0);
           const pending = campaign.value - received;
           return (

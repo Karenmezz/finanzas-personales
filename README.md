@@ -65,3 +65,18 @@ npm run db:import-json # Importa el JSON privado local sin duplicar registros
 ## Publicación
 
 En producción configura las mismas variables privadas. Todas las páginas y la ruta financiera requieren una sesión administrativa válida.
+
+## Organización mensual
+
+- El aviso de cobros de otros meses incluye únicamente meses anteriores al seleccionado.
+- Las campañas, cuentas y gastos pagados se ocultan al entrar; usa **Mostrar pagados** para consultarlos. En Finanzas vuelven a ocultarse al cambiar de mes o año.
+- **Marcas que más pagan** muestra el ranking del mes en Finanzas y del año en Dashboard, ordenado por pagos recibidos, con valor acordado y promedio por campaña. Agrupa variantes de mayúsculas, tildes y espacios y excluye el salario de Fundación de la Mujer.
+- Al consultar los datos se agregan los meses faltantes de transporte ($420.000 COP) y del salario de Fundación de la Mujer para los años disponibles. El salario usa el valor del registro existente más reciente y mantiene su día de pago, ajustándolo al último día del mes si es necesario. Los nuevos registros quedan pendientes, sin copiar pagos ni fechas de contenido. Los registros existentes conservan valores y estados; si no hay un salario guardado, no se inventa un importe. Si transporte ya figura como gasto del mes, no se duplica como cuenta.
+
+Para comprobar la lógica de recurrencias, ranking y cobros anteriores (Node.js 24):
+
+```bash
+node tests/finance-insights.test.mjs
+npm run lint
+npx next typegen && npx tsc --noEmit
+```

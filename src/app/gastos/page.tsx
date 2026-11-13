@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent } from "react";
+import { FormEvent, useState } from "react";
 import { useFinance } from "@/components/finance-provider";
 import { createId, currency } from "@/lib/finance";
 
 export default function ExpensesPage() {
   const { data, addExpense, deleteExpense } = useFinance();
+  const [showPaid, setShowPaid] = useState(false);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget);
     addExpense({ id: createId(), concept: String(form.get("concept")), category: String(form.get("category")), amount: Number(form.get("amount")), date: String(form.get("date")), status: "Comprado" });
@@ -19,6 +20,7 @@ export default function ExpensesPage() {
       <label><span className="label">Fecha</span><input className="field" name="date" type="date" required /></label>
       <button className="button self-end" type="submit">Agregar gasto</button>
     </form>
-    <div className="card overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead className="border-b text-slate-500"><tr><th className="pb-3">Fecha</th><th>Concepto</th><th>Categoría</th><th className="text-right">Valor</th><th></th></tr></thead><tbody>{data.expenses.map((expense) => <tr className="border-b border-slate-100" key={expense.id}><td className="py-3">{expense.date}</td><td>{expense.concept}</td><td>{expense.category}</td><td className="text-right font-semibold">{currency.format(expense.amount)}</td><td className="text-right"><button className="button-danger" onClick={() => deleteExpense(expense.id)}>Eliminar</button></td></tr>)}</tbody></table></div>
+    <button className="button-secondary mb-4" onClick={() => setShowPaid(!showPaid)}>{showPaid ? "Ocultar pagados" : "Mostrar pagados"}</button>
+    <div className="card overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead className="border-b text-slate-500"><tr><th className="pb-3">Fecha</th><th>Concepto</th><th>Categoría</th><th className="text-right">Valor</th><th></th></tr></thead><tbody>{data.expenses.filter((expense) => showPaid || expense.status !== "Comprado").map((expense) => <tr className="border-b border-slate-100" key={expense.id}><td className="py-3">{expense.date}</td><td>{expense.concept}</td><td>{expense.category}</td><td className="text-right font-semibold">{currency.format(expense.amount)}</td><td className="text-right"><button className="button-danger" onClick={() => deleteExpense(expense.id)}>Eliminar</button></td></tr>)}</tbody></table></div>
   </div>;
 }

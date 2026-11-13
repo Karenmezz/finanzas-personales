@@ -5,6 +5,7 @@ import { SummaryCard } from "@/components/summary-card";
 import { useFinance } from "@/components/finance-provider";
 import { availableYears, currency } from "@/lib/finance";
 import { FinanceCharts } from "@/components/finance-charts";
+import { BrandRanking } from "@/components/brand-ranking";
 import { CollapsibleSection } from "@/components/collapsible-section";
 
 export default function Home() {
@@ -40,6 +41,7 @@ export default function Home() {
         <SummaryCard titulo="Balance" valor={currency.format(received - expenses)} detalle="Recibido menos gastos" />
       </section>
       </CollapsibleSection>
+    <BrandRanking campaigns={campaigns} period={String(selectedYear)} />
       <CollapsibleSection title="Gráficas y evolución">
       <FinanceCharts data={data} year={selectedYear} />
       </CollapsibleSection>
