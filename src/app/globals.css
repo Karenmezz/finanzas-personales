@@ -98,3 +98,13 @@ body {
 @media (prefers-reduced-motion: reduce) { .mobile-nav-item { transition: none; } }
 
 #nuevo-registro { scroll-margin-top: 80px; scroll-margin-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+
+/* iOS Safari zooms focused controls below 16px, even when utility classes make
+   compact fields smaller. Keep editing controls readable on phones and touch devices. */
+@media (max-width: 1023px), (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

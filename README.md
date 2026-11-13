@@ -161,3 +161,7 @@ Se guarda mediante `/api/tasks`, con autenticación y respuestas privadas sin ca
 Las marcas quedan como información de resumen y ranking en **General** del Dashboard, sin pestaña ni selector propios. La antigua ruta `/contenidos/marcas` redirige a Dashboard.
 
 La migración `0005_true_agent_zero` agrega únicamente la tabla de pendientes y usa `IF NOT EXISTS`. El endpoint puede prepararla automáticamente si sigue pendiente, conservando la posibilidad de aplicar `npm run db:migrate` después. No se migran tareas a campañas ni se convierten en cobros.
+
+### Formularios sin autozoom en iPhone
+
+Los campos de texto, números, fechas, listas y áreas de notas usan un mínimo de 16 px en teléfonos y dispositivos táctiles, incluso cuando están dentro de controles compactos. Esto evita el aumento automático de Safari al enfocar campos pequeños. Se retiró el enfoque automático de los pendientes; la edición desde el calendario enfoca el primer campo solo en escritorio. El viewport conserva el zoom manual del navegador y los tamaños de campos de escritorio se mantienen.
