@@ -146,7 +146,7 @@ export function MonthlyWorkspace({ area }: { area: FinanceArea }) {
           <div className="flex flex-wrap justify-between gap-3"><div><h3 className="font-semibold">Salario · {monthName}</h3><p className="mt-1 text-sm text-slate-500">Fecha esperada: {salary.dueDate}</p></div><p className="font-bold">{currency.format(salary.value)}</p></div>
           <div className="mt-3 flex flex-wrap items-center justify-end gap-2">{salary.payments.length > 0 && <button className="button-secondary" onClick={() => undoPayment(salary.id)}>Deshacer último pago</button>}{pending > 0 && <button className="button" onClick={() => registerPayment(salary.id, pending)}>Registrar salario recibido</button>}</div>
         </article>; })}
-        {campaigns.length === 0 && <p className="mt-4 text-sm text-slate-500">El salario aparecerá al sincronizar los datos.</p>}
+        {campaigns.length === 0 && <p className="mt-4 text-sm text-slate-500">El salario de Fundación de la Mujer inició en octubre de 2026.</p>}
       </section>}
 
 

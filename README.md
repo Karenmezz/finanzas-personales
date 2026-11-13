@@ -71,7 +71,7 @@ En producción configura las mismas variables privadas. Todas las páginas y la 
 - El aviso de cobros de otros meses incluye únicamente meses anteriores al seleccionado.
 - Las campañas, cuentas y gastos pagados se ocultan al entrar; usa **Mostrar pagados** para consultarlos. En Finanzas vuelven a ocultarse al cambiar de mes o año.
 - **Marcas que más pagan** muestra el ranking del mes en Finanzas y del año en Dashboard, ordenado por pagos recibidos, con valor acordado y promedio por campaña. Agrupa variantes de mayúsculas, tildes y espacios y excluye el salario de Fundación de la Mujer.
-- Al consultar los datos se agregan los meses faltantes de transporte ($420.000 COP) y del salario fijo de Fundación de la Mujer ($3.100.000 COP) para los años disponibles. Los salarios sin pagos usan el importe fijo; los registros con pagos conservan su valor e historial. Los nuevos meses no copian pagos ni fechas de contenido. Transporte no se duplica si ya existe como cuenta o gasto del mes.
+- Al consultar los datos se agregan los meses faltantes de transporte ($420.000 COP) y del salario fijo de Fundación de la Mujer ($3.100.000 COP) desde octubre de 2026. No se generan salarios en meses anteriores; los registros anteriores sin pagos se excluyen de los datos mostrados y cualquier pago registrado se conserva. Los salarios sin pagos usan el importe fijo; los registros con pagos conservan su valor e historial. Los nuevos meses no copian pagos ni fechas de contenido. Transporte no se duplica si ya existe como cuenta o gasto del mes.
 
 Para comprobar la lógica de recurrencias, ranking y cobros anteriores (Node.js 24):
 
@@ -85,4 +85,5 @@ npx next typegen && npx tsc --noEmit
 
 - **Finanzas** (`/`): salario fijo de Fundación de la Mujer, cuentas de la casa, transporte y todos los gastos extras, sin importar su categoría (incluidos Trabajo, Producción, Contenido y Publicidad). Permite registrar el salario recibido y consultar los salarios ya pagados.
 - **Contenidos** (`/contenidos`): campañas, pagos de marcas, cobros de meses anteriores, calendario y una subsección **Marcas** (`/contenidos/marcas`). El selector de marcas permite consultar campañas y pagos de todos los meses, agrupando variantes del nombre; los pagados se ocultan por defecto.
-- **Dashboard y Movimientos**: selector de sección para consultar cifras e historial de cada área por separado. Cambiar de sección no modifica ni elimina los registros existentes.
+- **Dashboard**: resumen conjunto de salario, marcas, cuentas y gastos extras, con totales consolidados, desglose del origen de ingresos y ranking de marcas. El balance usa dinero recibido menos gastos pagados.
+- **Movimientos**: selector de sección para consultar el historial de cada área por separado.

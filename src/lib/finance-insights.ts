@@ -23,10 +23,13 @@ export function brandRanking(campaigns: Campaign[]) {
 }
 
 export const FOUNDATION_MONTHLY_SALARY = 3100000;
+export const FOUNDATION_SALARY_START = "2026-10";
 
 // Preserve payment history while fixing unpaid salary amounts and filling missing months.
 export function withMonthlyDefaults(data: FinanceData, years: number[]): FinanceData {
-  const campaigns = data.campaigns.map((campaign) => isFoundationSalary(campaign) && campaign.payments.length === 0
+  const campaigns = data.campaigns.filter((campaign) =>
+    !isFoundationSalary(campaign) || (campaign.month ?? campaign.dueDate.slice(0, 7)) >= FOUNDATION_SALARY_START || campaign.payments.length > 0
+  ).map((campaign) => isFoundationSalary(campaign) && campaign.payments.length === 0
     ? { ...campaign, value: FOUNDATION_MONTHLY_SALARY } : campaign);
   const bills = [...data.bills];
   const salaries = data.campaigns.filter((campaign) => isFoundationSalary(campaign) && campaign.value > 0);
@@ -46,7 +49,7 @@ export function withMonthlyDefaults(data: FinanceData, years: number[]): Finance
       const hasTransport = bills.some((bill) => normalizeName(bill.name) === "transporte" && bill.dueDate.startsWith(period)) ||
         data.expenses.some((expense) => normalizeName(expense.concept) === "transporte" && expense.date.startsWith(period));
       if (!hasTransport) bills.push({ id: `recurring-transport-${period}`, name: "Transporte", category: "Transporte", amount: 420000, dueDate: `${period}-28`, paid: false });
-      if (salaryAmount && !salaries.some((item) => (item.month ?? item.dueDate.slice(0, 7)) === period)) {
+      if (period >= FOUNDATION_SALARY_START && !salaries.some((item) => (item.month ?? item.dueDate.slice(0, 7)) === period)) {
         const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
         const day = Math.min(Number(template.dueDate.slice(8, 10)) || 28, lastDay);
         campaigns.push({ ...template, value: salaryAmount, id: `recurring-salary-${period}`, month: period, dueDate: `${period}-${String(day).padStart(2, "0")}`, contentDueDate: undefined, status: "Pendiente", payments: [] });
@@ -87,4 +90,18 @@ export function campaignsByBrand(campaigns: Campaign[]) {
     brands.set(id, brand);
   }
   return [...brands.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
+}
+
+export function dashboardSummary(data: FinanceData, year: number) {
+  const campaigns = data.campaigns.filter((campaign) => (campaign.month ?? campaign.dueDate.slice(0, 7)).startsWith(`${year}-`));
+  const salaries = campaigns.filter(isFoundationSalary);
+  const brandCampaigns = campaigns.filter((campaign) => !isFoundationSalary(campaign));
+  const generated = campaigns.reduce((sum, campaign) => sum + campaign.value, 0);
+  const received = campaigns.reduce((sum, campaign) => sum + campaign.payments.reduce((total, payment) => total + payment.amount, 0), 0);
+  const pending = campaigns.reduce((sum, campaign) => sum + Math.max(campaign.value - campaign.payments.reduce((total, payment) => total + payment.amount, 0), 0), 0);
+  const bills = data.bills.filter((bill) => bill.dueDate.startsWith(`${year}-`));
+  const extras = data.expenses.filter((expense) => expense.date.startsWith(`${year}-`));
+  const expenses = bills.filter((bill) => bill.paid).reduce((sum, bill) => sum + bill.amount, 0) + extras.filter((expense) => expense.status === "Comprado").reduce((sum, expense) => sum + expense.amount, 0);
+  const pendingExpenses = bills.filter((bill) => !bill.paid).reduce((sum, bill) => sum + bill.amount, 0) + extras.filter((expense) => expense.status === "Pendiente").reduce((sum, expense) => sum + expense.amount, 0);
+  return { generated, received, pending, expenses, pendingExpenses, balance: received - expenses, salaries, brandCampaigns };
 }
