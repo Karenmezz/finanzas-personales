@@ -1,6 +1,5 @@
 "use client";
 
-import { ExchangeRateNotice } from "@/components/exchange-rate-notice";
 import Link from "next/link";
 import { useRef, useState, type KeyboardEvent } from "react";
 import { dashboardSummary, isFoundationSalary, selectFinanceArea } from "@/lib/finance-insights";
@@ -83,7 +82,6 @@ export default function DashboardPage() {
       <div><p className="text-sm font-semibold uppercase tracking-wider text-slate-500">Resumen general</p><h1 className="mt-2 text-3xl font-bold tracking-tight">Dashboard financiero</h1><p className="mt-2 text-slate-600">{labels[tab]}</p></div>
       <label><span className="sr-only">Año</span><select aria-label="Año del Dashboard" className="h-10 min-w-[128px] rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold" value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
     </header>
-    <ExchangeRateNotice />
     <div role="tablist" aria-label="Categorías del Dashboard" className="mb-4 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
       {tabs.map((item, index) => <button key={item.id} ref={(element) => { tabRefs.current[index] = element; }} type="button" role="tab" id={`dashboard-tab-${item.id}`} aria-controls="dashboard-panel" aria-selected={tab === item.id} tabIndex={tab === item.id ? 0 : -1} onKeyDown={(event) => navigateTabs(event, index)} onClick={() => setTab(item.id)} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 sm:flex-1 ${tab === item.id ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:bg-white"}`}>{item.label}</button>)}
     </div>
