@@ -10,6 +10,7 @@ const links = [
   ["Contenidos", "/contenidos"],
   ["Movimientos", "/movimientos"],
   ["Dashboard general", "/dashboard"],
+  ["Configuración", "/configuracion"],
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

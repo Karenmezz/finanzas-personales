@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState, type KeyboardEvent } from "react";
-import { dashboardSummary, isBarterCampaign, isFoundationSalary, selectFinanceArea } from "@/lib/finance-insights";
+import { dashboardSummary, isBarterCampaign, isPersonalIncome, selectFinanceArea } from "@/lib/finance-insights";
 import { SummaryCard } from "@/components/summary-card";
 import { useFinance } from "@/components/finance-provider";
 import { availableYears, currency } from "@/lib/finance";
@@ -31,7 +31,7 @@ export default function DashboardPage() {
   const salaryTotal = summary.salaries.reduce((sum, salary) => sum + salary.value, 0);
   const brandTotal = summary.brandCampaigns.reduce((sum, campaign) => sum + campaign.value, 0);
   const movements = [
-    ...data.campaigns.filter((campaign) => !isBarterCampaign(campaign)).flatMap((campaign) => campaign.payments.map((payment) => ({ id: `payment-${campaign.id}-${payment.id}`, concept: campaign.name, category: isFoundationSalary(campaign) ? "Salario" : campaign.brand, date: payment.date, amount: payment.amount, income: true }))),
+    ...data.campaigns.filter((campaign) => !isBarterCampaign(campaign)).flatMap((campaign) => campaign.payments.map((payment) => ({ id: `payment-${campaign.id}-${payment.id}`, concept: campaign.name, category: isPersonalIncome(campaign) ? "Salario" : campaign.brand, date: payment.date, amount: payment.amount, income: true }))),
     ...data.bills.filter((bill) => bill.paid).map((bill) => ({ id: `bill-${bill.id}`, concept: bill.name, category: "Cuenta de la casa", date: bill.dueDate, amount: bill.amount, income: false })),
     ...data.expenses.filter((expense) => expense.status === "Comprado").map((expense) => ({ id: `expense-${expense.id}`, concept: expense.concept, category: expense.category, date: expense.date, amount: expense.amount, income: false })),
   ].filter((movement) => movement.date.startsWith(`${selectedYear}-`)).sort((a, b) => b.date.localeCompare(a.date));
@@ -52,7 +52,7 @@ export default function DashboardPage() {
     { titulo: "Balance", valor: currency.format(summary.balance), detalle: "Recibido menos gastos pagados" },
   ];
   if (tab === "finances") indicators = [
-    { titulo: "Salario", valor: currency.format(summary.generated), detalle: "Desde octubre de 2026" },
+    { titulo: "Ingresos personales", valor: currency.format(summary.generated), detalle: "Según tus ingresos configurados" },
     { titulo: "Recibido", valor: currency.format(summary.received), detalle: "Pagos del salario" },
     { titulo: "Gastos pagados", valor: currency.format(summary.expenses), detalle: "Casa y gastos extras" },
     { titulo: "Balance", valor: currency.format(summary.balance), detalle: "Salario recibido menos gastos" },
@@ -99,7 +99,7 @@ export default function DashboardPage() {
 
       {tab === "general" && <>
         <section className="mt-3 grid grid-cols-2 gap-2" aria-label="Origen de los ingresos">
-          <SummaryCard tono="indigo" titulo="Salario de Fundación de la Mujer" valor={currency.format(salaryTotal)} detalle="Fijo mensual de $3.100.000 desde octubre de 2026" />
+          <SummaryCard tono="indigo" titulo="Ingresos personales" valor={currency.format(salaryTotal)} detalle="Ingresos guardados en tu cuenta" />
           <SummaryCard tono="emerald" titulo="Campañas de marcas" valor={currency.format(brandTotal)} detalle={`${summary.brandCampaigns.length} campañas en el año seleccionado`} />
         </section>
         <FinanceCharts data={data} year={selectedYear} />

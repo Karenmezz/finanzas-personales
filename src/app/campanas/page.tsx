@@ -4,14 +4,14 @@ import { CampaignCurrencyFields, campaignMoneyFromForm } from "@/components/camp
 import { UsdPaymentDialog } from "@/components/usd-payment-dialog";
 import { CampaignUsdDetails } from "@/components/campaign-usd-details";
 import { FormEvent, useState } from "react";
-import { isBarterCampaign, isFoundationSalary } from "@/lib/finance-insights";
+import { isBarterCampaign, isPersonalIncome } from "@/lib/finance-insights";
 import { useFinance } from "@/components/finance-provider";
 import { createId, currency } from "@/lib/finance";
 
 export default function CampaignsPage() {
   const { data, addCampaign, addPayment, deleteCampaign } = useFinance();
   const [showPaid, setShowPaid] = useState(false);
-  const visibleCampaigns = data.campaigns.filter((campaign) => !isFoundationSalary(campaign) && !isBarterCampaign(campaign) && (showPaid || campaign.payments.reduce((sum, payment) => sum + payment.amount, 0) < campaign.value));
+  const visibleCampaigns = data.campaigns.filter((campaign) => !isPersonalIncome(campaign) && !isBarterCampaign(campaign) && (showPaid || campaign.payments.reduce((sum, payment) => sum + payment.amount, 0) < campaign.value));
   const [usdPaymentId, setUsdPaymentId] = useState<string | null>(null);
   const usdPaymentCampaign = data.campaigns.find((campaign) => campaign.id === usdPaymentId);
   const [error, setError] = useState<string | null>(null);

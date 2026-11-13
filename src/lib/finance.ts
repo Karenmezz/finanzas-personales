@@ -1,4 +1,3 @@
-import importedData from "./default-data.json";
 
 export type ExchangeRate = {
   date: string;
@@ -26,6 +25,9 @@ export type Campaign = {
   name: string;
   brand: string;
   network: string;
+  incomeType?: "personal";
+  recurringId?: string;
+  manualOverride?: boolean;
   collaborationType?: string;
   benefit?: CampaignBenefit;
   month?: string;
@@ -49,7 +51,23 @@ export type Expense = {
   status: "Pendiente" | "Comprado";
 };
 
+export type RecurringRule = {
+  id: string;
+  kind: "expense" | "income";
+  name: string;
+  category: string;
+  startOn: string;
+  endOn?: string;
+  enabled: boolean;
+  skippedPeriods?: string[];
+  monthlyAmounts?: Record<string, number>;
+  versions: { from: string; amount: number; day: number }[];
+};
+export type RecurringSettings = { version: 1; rules: RecurringRule[] };
+
 export type Bill = {
+  recurringId?: string;
+  manualOverride?: boolean;
   id: string;
   name: string;
   category: string;
@@ -60,6 +78,7 @@ export type Bill = {
 };
 
 export type FinanceData = {
+  recurring?: RecurringSettings;
   exchangeRate?: ExchangeRate;
   campaigns: Campaign[];
   expenses: Expense[];
@@ -67,7 +86,10 @@ export type FinanceData = {
   monthColors: Record<string, string>;
 };
 
-export const initialData = importedData as FinanceData;
+export const initialData: FinanceData = {
+  campaigns: [], bills: [], expenses: [], recurring: { version: 1, rules: [] },
+  monthColors: Object.fromEntries(Array.from({ length: 12 }, (_, index) => [String(index + 1).padStart(2, "0"), "#ddd6fe"])),
+};
 
 export const currency = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -85,5 +107,6 @@ export function availableYears(data: FinanceData) {
   data.campaigns.forEach((item) => years.add(Number((item.month ?? item.dueDate).slice(0, 4))));
   data.expenses.forEach((item) => years.add(Number(item.date.slice(0, 4))));
   data.bills.forEach((item) => years.add(Number(item.dueDate.slice(0, 4))));
+  data.recurring?.rules.forEach((rule) => { years.add(Number(rule.startOn.slice(0, 4))); if (rule.endOn) years.add(Number(rule.endOn.slice(0, 4))); rule.versions.forEach((version) => years.add(Number(version.from.slice(0, 4)))); });
   return [...years].filter(Number.isFinite).sort((a, b) => b - a);
 }

@@ -1,4 +1,4 @@
-import type { CampaignBenefit } from "@/lib/finance";
+import type { CampaignBenefit, RecurringSettings } from "@/lib/finance";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const campaigns = sqliteTable("campaigns", {
@@ -6,6 +6,9 @@ export const campaigns = sqliteTable("campaigns", {
   name: text("name").notNull(),
   brand: text("brand").notNull(),
   network: text("network").notNull(),
+  incomeType: text("income_type", { enum: ["personal"] }),
+  recurringId: text("recurring_id"),
+  manualOverride: integer("manual_override", { mode: "boolean" }).notNull().default(false),
   collaborationType: text("collaboration_type"),
   benefit: text("benefit", { mode: "json" }).$type<CampaignBenefit>(),
   month: text("month").notNull(),
@@ -39,6 +42,8 @@ export const expenses = sqliteTable("expenses", {
 });
 
 export const bills = sqliteTable("bills", {
+  recurringId: text("recurring_id"),
+  manualOverride: integer("manual_override", { mode: "boolean" }).notNull().default(false),
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   category: text("category").notNull(),
@@ -51,4 +56,9 @@ export const bills = sqliteTable("bills", {
 export const monthColors = sqliteTable("month_colors", {
   month: text("month").primaryKey(),
   color: text("color").notNull(),
+});
+
+export const financeSettings = sqliteTable("finance_settings", {
+  id: text("id").primaryKey(),
+  value: text("value", { mode: "json" }).$type<RecurringSettings>().notNull(),
 });

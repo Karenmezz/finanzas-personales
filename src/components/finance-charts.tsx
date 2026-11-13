@@ -17,7 +17,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { isBarterCampaign, isFoundationSalary } from "@/lib/finance-insights";
+import { isBarterCampaign, isPersonalIncome } from "@/lib/finance-insights";
 import type { FinanceData } from "@/lib/finance";
 import { currency } from "@/lib/finance";
 
@@ -40,7 +40,7 @@ export function FinanceCharts({ data, year, scope = "all" }: { data: FinanceData
     return { month, name, generated, received, pending: generated - received, spent, balance: received - spent };
   });
 
-  const yearCampaigns = data.campaigns.filter((item) => (item.month ?? item.dueDate.slice(0, 7)).startsWith(`${year}-`) && !isFoundationSalary(item) && !isBarterCampaign(item));
+  const yearCampaigns = data.campaigns.filter((item) => (item.month ?? item.dueDate.slice(0, 7)).startsWith(`${year}-`) && !isPersonalIncome(item) && !isBarterCampaign(item));
   const networks = Array.from(new Set(yearCampaigns.map((item) => item.network))).map((network) => ({
     name: network.replace("TikTok y Instagram", "TikTok + Instagram"),
     value: yearCampaigns.filter((item) => item.network === network).reduce((sum, item) => sum + item.value, 0),

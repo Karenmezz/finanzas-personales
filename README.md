@@ -70,8 +70,7 @@ En producción configura las mismas variables privadas. Todas las páginas y la 
 
 - El aviso de cobros de otros meses incluye únicamente meses anteriores al seleccionado.
 - Las campañas, cuentas y gastos pagados se ocultan al entrar; usa **Mostrar pagados** para consultarlos. En Finanzas vuelven a ocultarse al cambiar de mes o año.
-- **Marcas que más pagan** muestra el ranking del mes en Finanzas y del año en Dashboard, ordenado por pagos recibidos, con valor acordado y promedio por campaña. Agrupa variantes de mayúsculas, tildes y espacios y excluye el salario de Fundación de la Mujer.
-- Al consultar los datos se agregan los meses faltantes de transporte ($420.000 COP) y del salario fijo de Fundación de la Mujer ($3.100.000 COP) desde octubre de 2026. No se generan salarios en meses anteriores; los registros anteriores sin pagos se excluyen de los datos mostrados y cualquier pago registrado se conserva. Los salarios sin pagos usan el importe fijo; los registros con pagos conservan su valor e historial. Los nuevos meses no copian pagos ni fechas de contenido. Transporte no se duplica si ya existe como cuenta o gasto del mes.
+- **Marcas que más pagan** muestra el ranking del mes en Finanzas y del año en Dashboard, ordenado por pagos recibidos, con valor acordado y promedio por campaña. Agrupa variantes de mayúsculas, tildes y espacios y excluye los ingresos personales.
 
 Para comprobar la lógica de recurrencias, ranking y cobros anteriores (Node.js 24):
 
@@ -83,7 +82,6 @@ npx next typegen && npx tsc --noEmit
 
 ## Secciones
 
-- **Finanzas** (`/`): salario fijo de Fundación de la Mujer, cuentas de la casa, transporte y todos los gastos extras, sin importar su categoría (incluidos Trabajo, Producción, Contenido y Publicidad). Permite registrar el salario recibido y consultar los salarios ya pagados.
 - **Contenidos** (`/contenidos`): campañas, pagos de marcas, cobros de meses anteriores, calendario y una subsección **Marcas** (`/contenidos/marcas`). El selector de marcas permite consultar campañas y pagos de todos los meses, agrupando variantes del nombre; los pagados se ocultan por defecto.
 - **Dashboard**: indicadores compactos, con fondos de color sutiles e iconos, con una barra de categorías deslizable: General, Finanzas, Contenidos, Marcas y Movimientos. General reúne salario, marcas, cuentas y gastos extras; las otras categorías muestran sus propios indicadores y detalles, manteniendo el año seleccionado. El balance usa dinero recibido menos gastos pagados.
 - **Movimientos**: selector de sección para consultar el historial de cada área por separado.
@@ -117,3 +115,13 @@ En Contenidos hay pestañas **Campañas pagas**, **Canjes** y **Marcas**. Al cre
 - Dashboard muestra los beneficios aparte. Los canjes no incrementan ingresos, cuentas por cobrar, movimientos monetarios ni el ranking de marcas que más pagan. Las mixtas solo suman el pago acordado.
 
 La migración `0002_shocking_korvac.sql` agrega la columna opcional `campaigns.benefit` sin modificar pagos anteriores. Antes de desplegar esta versión, ejecutar `npm run db:migrate` sobre la base configurada (incluye las migraciones de USD y canjes). Verificaciones: `node tests/barter.test.mjs`, `node tests/finance-insights.test.mjs` y `node tests/usd.test.mjs`.
+
+### Configuración mensual
+
+En `/configuracion` se administran **Gastos fijos** e **Ingresos fijos** con nombre, categoría/origen, valor, día del mes, fecha de inicio y fecha final opcional. Una cuenta nueva empieza hoy o en una fecha posterior; no genera meses anteriores. Los días 29–31 se ajustan al fin de meses cortos. Se pueden pausar o reactivar.
+
+Desde Finanzas, **Ajustar valor** permite elegir **Solo este mes** (ej. una factura variable) o **Este mes y los siguientes**. Los ajustes individuales se conservan al cambiar el valor habitual. Los meses anteriores y registros con pagos quedan intactos al cambiar la configuración. Eliminar una obligación mensual omite ese mes sin volver a crearlo; finalizar o pausar la regla detiene las pendientes del mes actual y futuros.
+
+La migración `0003_naive_ezekiel_stane` añade configuraciones y referencias de recurrencia y clasifica ingresos históricos. La primera consulta convierte las recurrencias existentes desde los registros de la base, sin incorporar importes ni datos personales del código. Las reglas quedan editables. No se modifican los importes de meses pasados ni pagos registrados. Ejecutar `npm run db:migrate` antes del despliegue.
+
+Se eliminó el archivo de datos personales precargados. Una instalación nueva empieza vacía. El importador opcional recibe un archivo privado explícito: `npm run db:import-json -- /ruta/privada/datos.json`. El servidor es la fuente al sincronizar y ya no se reinsertan datos personales iniciales desde el navegador.

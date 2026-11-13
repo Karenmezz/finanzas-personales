@@ -1,15 +1,18 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
-import type { Bill, Campaign, ExchangeRate, Expense, FinanceData } from "@/lib/finance";
+import type { Bill, Campaign, ExchangeRate, Expense, FinanceData, RecurringRule } from "@/lib/finance";
 import { usePathname } from "next/navigation";
 import { bogotaDate, isDailyTrmRefreshDue, nextTrmRefreshAt, makeUsdPayment, revalueFinanceData } from "@/lib/usd";
 import { fetchExchangeRate } from "@/lib/usd-client";
 import { isBarterCampaign } from "@/lib/finance-insights";
-import { initialData } from "@/lib/finance";
+import { adoptExistingRecurring, changeRecurringAmount, materializeRecurring } from "@/lib/recurring";
+import { availableYears, initialData } from "@/lib/finance";
 
 type FinanceContextValue = {
   data: FinanceData;
+  saveRecurringRule: (rule: RecurringRule) => void;
+  changeMonthlyAmount: (kind: "expense" | "income", id: string, amount: number, scope: "month" | "future") => void;
   addCampaign: (campaign: Campaign) => void;
   updateCampaign: (id: string, changes: Partial<Campaign>) => void;
   deleteCampaign: (id: string) => void;
@@ -42,28 +45,7 @@ function getSnapshot() {
     const saved = window.localStorage.getItem(storageKey);
     if (saved) {
       const parsed = JSON.parse(saved) as FinanceData;
-      currentData = {
-        ...parsed,
-        campaigns: parsed.campaigns.map((campaign) => ({
-          ...campaign,
-          contentDueDate:
-            campaign.contentDueDate ??
-            initialData.campaigns.find((seed) => seed.id === campaign.id)
-              ?.contentDueDate,
-        })),
-        bills: [
-          ...parsed.bills,
-          ...initialData.bills.filter(
-            (seed) =>
-              !parsed.bills.some(
-                (bill) =>
-                  bill.name.trim() === seed.name.trim() &&
-                  bill.dueDate.slice(0, 7) === seed.dueDate.slice(0, 7),
-              ),
-          ),
-        ],
-        monthColors: { ...initialData.monthColors, ...parsed.monthColors },
-      };
+      currentData = { ...parsed, monthColors: { ...initialData.monthColors, ...parsed.monthColors } };
     }
     currentData = revalueFinanceData(currentData);
     hydrated = true;
@@ -74,10 +56,6 @@ function getSnapshot() {
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
-}
-
-function hasFinancialRecords(data: FinanceData) {
-  return data.campaigns.length > 0 || data.bills.length > 0 || data.expenses.length > 0;
 }
 
 function queueRemoteSave(nextData: FinanceData) {
@@ -95,10 +73,11 @@ function queueRemoteSave(nextData: FinanceData) {
 }
 
 function saveData(nextData: FinanceData, syncRemote = true, freshQuote?: ExchangeRate) {
+  nextData = { ...nextData, monthColors: { ...initialData.monthColors, ...nextData.monthColors } };
   const previousRate = currentData.exchangeRate;
   const nextRate = nextData.exchangeRate;
   const quote = freshQuote ?? (previousRate && (!nextRate || previousRate.date >= nextRate.date) ? previousRate : nextRate);
-  nextData = revalueFinanceData(nextData, quote);
+  nextData = revalueFinanceData(materializeRecurring(nextData, availableYears(nextData)), quote);
   currentData = nextData;
   window.localStorage.setItem(storageKey, JSON.stringify(nextData));
   listeners.forEach((listener) => listener());
@@ -150,11 +129,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         });
         if (!response.ok) return;
         const remoteData = (await response.json()) as FinanceData;
-        const localData = getSnapshot();
-        if (!hasFinancialRecords(remoteData) && hasFinancialRecords(localData)) {
-          console.warn("Se conservó el respaldo local porque la base remota llegó vacía");
-          return;
-        }
         saveData(remoteData, false);
       } catch (error) {
         if (!controller.signal.aborted) console.error("Se usará el respaldo local", error);
@@ -170,6 +144,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const value: FinanceContextValue = {
     data,
+    saveRecurringRule: (rule) => update((current) => {
+      const adopted = adoptExistingRecurring(current);
+      return { ...adopted, recurring: { version: 1, rules: [...adopted.recurring!.rules.filter((item) => item.id !== rule.id), rule] } };
+    }),
+    changeMonthlyAmount: (kind, id, amount, scope) => update((current) => changeRecurringAmount(current, kind, id, amount, scope)),
     exchangeRateError,
     refreshExchangeRate,
     addUsdPayment: (campaignId, cents, date, quote) => update((current) => ({
@@ -264,6 +243,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       update((current) => ({
         ...current,
         bills: current.bills.filter((item) => item.id !== id),
+        recurring: current.recurring ? { ...current.recurring, rules: current.recurring.rules.map((rule) => {
+          const bill = current.bills.find((item) => item.id === id && item.recurringId === rule.id);
+          return bill ? { ...rule, skippedPeriods: [...new Set([...(rule.skippedPeriods ?? []), bill.dueDate.slice(0, 7)])] } : rule;
+        }) } : current.recurring,
       })),
     updateMonthColor: (month, color) =>
       update((current) => ({
