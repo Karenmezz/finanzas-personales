@@ -29,7 +29,7 @@ body {
 
 /* WebKit 301648: iOS adds date-input padding and borders outside width: 100%. */
 @supports (-webkit-touch-callout: none) {
-  [aria-label="Cobros pendientes de otros meses"] input[type="date"].field {
+  [aria-label="Cobros pendientes de meses anteriores"] input[type="date"].field {
     width: calc(100% - 1.5rem - 2px);
   }
 }
