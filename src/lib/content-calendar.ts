@@ -14,3 +14,8 @@ export function calendarCells(period: string): (number | null)[] {
   while(cells.length%7) cells.push(null);
   return cells;
 }
+
+export function kanbanContents(campaigns: Campaign[], period: string, selectedDate: string | null, includeUndated = true) {
+  return campaigns.filter((campaign) => campaign.incomeType !== "personal" && (selectedDate ? campaign.contentDueDate === selectedDate : campaign.contentDueDate?.startsWith(`${period}-`) || (includeUndated && !campaign.contentDueDate)))
+    .sort((a,b) => (a.contentDueDate || "9999").localeCompare(b.contentDueDate || "9999") || a.name.localeCompare(b.name,"es"));
+}
