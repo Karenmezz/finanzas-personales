@@ -82,8 +82,8 @@ npx next typegen && npx tsc --noEmit
 
 ## Secciones
 
-- **Contenidos** (`/contenidos`): campañas, pagos de marcas, cobros de meses anteriores, calendario, canjes y pendientes personales. Las marcas se consultan en la sección existente de Dashboard, con selector e historial del año elegido y finalizadas ocultas por defecto.
-- **Dashboard**: indicadores compactos, con fondos de color sutiles e iconos, con una barra de categorías deslizable: General, Finanzas, Contenidos, Canjes, Marcas y Movimientos. General reúne salario, marcas, cuentas y gastos extras; las otras categorías muestran sus propios indicadores y detalles, manteniendo el año seleccionado. El balance usa dinero recibido menos gastos pagados.
+- **Contenidos** (`/contenidos`): campañas, pagos de marcas, cobros de meses anteriores, calendario, canjes y pendientes personales. Las marcas aparecen como información de resumen y ranking en General del Dashboard.
+- **Dashboard**: indicadores compactos, con fondos de color sutiles e iconos, con una barra de categorías deslizable: General, Finanzas, Contenidos, Canjes y Movimientos. General reúne salario, marcas, cuentas y gastos extras; las otras categorías muestran sus propios indicadores y detalles, manteniendo el año seleccionado. El balance usa dinero recibido menos gastos pagados.
 - **Movimientos**: selector de sección para consultar el historial de cada área por separado.
 
 ## Campañas en dólares
@@ -158,6 +158,6 @@ Contenidos tiene **Campañas pagas / Calendario / Canjes / Pendientes**. Pendien
 
 Se guarda mediante `/api/tasks`, con autenticación y respuestas privadas sin caché, en `personal_tasks`, aparte de campañas, pagos, calendario e indicadores financieros. Marcar un check se refleja al momento y se revierte si falla el guardado. No se consulta ni incrusta automáticamente el contenido del enlace de referencia.
 
-Las marcas se consultan en la pestaña **Marcas** ya existente de Dashboard, con selector e historial del año elegido. No se agregan pestañas al Dashboard. La antigua ruta `/contenidos/marcas` redirige a Dashboard.
+Las marcas quedan como información de resumen y ranking en **General** del Dashboard, sin pestaña ni selector propios. La antigua ruta `/contenidos/marcas` redirige a Dashboard.
 
 La migración `0005_true_agent_zero` agrega únicamente la tabla de pendientes y usa `IF NOT EXISTS`. El endpoint puede prepararla automáticamente si sigue pendiente, conservando la posibilidad de aplicar `npm run db:migrate` después. No se migran tareas a campañas ni se convierten en cobros.

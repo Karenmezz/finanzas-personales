@@ -7,7 +7,6 @@ import { SummaryCard } from "@/components/summary-card";
 import { useFinance } from "@/components/finance-provider";
 import { availableYears, currency } from "@/lib/finance";
 import { FinanceCharts } from "@/components/finance-charts";
-import { BrandBrowser } from "@/components/brand-browser";
 import { BrandRanking } from "@/components/brand-ranking";
 
 const tabs = [
@@ -15,7 +14,6 @@ const tabs = [
   { id: "finances", label: "Finanzas" },
   { id: "content", label: "Contenidos" },
   { id: "barter", label: "Canjes" },
-  { id: "brands", label: "Marcas" },
   { id: "movements", label: "Movimientos" },
 ] as const;
 type DashboardTab = (typeof tabs)[number]["id"];
@@ -27,7 +25,7 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<DashboardTab>("general");
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const years = availableYears(data);
-  const scopedData = tab === "finances" ? selectFinanceArea(data, "finances") : tab === "content" || tab === "brands" ? selectFinanceArea(data, "content") : data;
+  const scopedData = tab === "finances" ? selectFinanceArea(data, "finances") : tab === "content" ? selectFinanceArea(data, "content") : data;
   const summary = dashboardSummary(scopedData, selectedYear);
   const salaryTotal = summary.salaries.reduce((sum, salary) => sum + salary.value, 0);
   const brandTotal = summary.brandCampaigns.reduce((sum, campaign) => sum + campaign.value, 0);
@@ -43,7 +41,6 @@ export default function DashboardPage() {
     finances: "Tu salario, las cuentas de la casa y todos los gastos extras.",
     barter: "Productos y bonos recibidos, separados de tus ingresos en dinero.",
     content: "Campañas, publicaciones y cobros de tus colaboraciones.",
-    brands: "Compara las marcas y consulta cuánto generan y cuánto han pagado.",
     movements: "Ingresos recibidos y gastos pagados durante el año seleccionado.",
   };
   let indicators: Indicator[] = [
@@ -58,7 +55,7 @@ export default function DashboardPage() {
     { titulo: "Gastos pagados", valor: currency.format(summary.expenses), detalle: "Casa y gastos extras" },
     { titulo: "Balance", valor: currency.format(summary.balance), detalle: "Salario recibido menos gastos" },
   ];
-  if (tab === "content" || tab === "brands") indicators = [
+  if (tab === "content") indicators = [
     { titulo: "Campañas", valor: String(summary.contentCampaigns.length), detalle: "Pagas, canjes y mixtas" },
     { titulo: "Acordado", valor: currency.format(summary.generated), detalle: "Valor de las campañas" },
     { titulo: "Recibido", valor: currency.format(summary.received), detalle: "Pagos de marcas" },
@@ -116,7 +113,6 @@ export default function DashboardPage() {
         <section className="card mt-6"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Estado del contenido</h2><Link className="button-secondary" href="/contenidos">Campañas y calendario</Link></div><dl className="mt-4 grid gap-3 sm:grid-cols-3">{["Pendiente", "En producción", "Realizado"].map((status) => <div key={status} className="rounded-xl bg-slate-50 p-4"><dt className="text-sm text-slate-500">{status}</dt><dd className="mt-2 text-xl font-bold">{summary.contentCampaigns.filter((campaign) => campaign.status === status).length}</dd></div>)}</dl></section>
         <FinanceCharts data={scopedData} year={selectedYear} scope="content" />
       </>}
-      {tab === "brands" && <div className="mt-5"><BrandBrowser key={selectedYear} campaigns={summary.contentCampaigns} period={String(selectedYear)} /></div>}
       {tab === "movements" && <section className="card mt-6" aria-label="Últimos movimientos"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Últimos movimientos</h2><p className="mt-1 text-xs text-slate-500">Los pagos de cuentas usan la fecha de vencimiento registrada.</p></div><Link className="button-secondary" href="/movimientos">Ver historial</Link></div><div className="mt-4 divide-y divide-slate-100">{movements.slice(0, 12).map((movement) => <article key={movement.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><h3 className="break-words text-sm font-semibold">{movement.concept}</h3><p className="mt-1 text-xs text-slate-500">{movement.category} · {movement.date}</p></div><p className={`shrink-0 text-sm font-bold ${movement.income ? "text-emerald-700" : "text-rose-700"}`}>{movement.income ? "+" : "−"}{currency.format(movement.amount)}</p></article>)}</div>{movements.length === 0 && <p className="mt-4 text-sm text-slate-500">No hay movimientos registrados para este año.</p>}</section>}
     </div>
   </div>;
