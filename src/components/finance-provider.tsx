@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import type { Bill, Campaign, ExchangeRate, Expense, FinanceData } from "@/lib/finance";
-import { bogotaDate, makeUsdPayment, revalueFinanceData } from "@/lib/usd";
+import { usePathname } from "next/navigation";
+import { bogotaDate, isDailyTrmRefreshDue, nextTrmRefreshAt, makeUsdPayment, revalueFinanceData } from "@/lib/usd";
 import { fetchExchangeRate } from "@/lib/usd-client";
 import { initialData } from "@/lib/finance";
 
@@ -32,6 +33,8 @@ let currentData = initialData;
 let hydrated = false;
 const listeners = new Set<() => void>();
 let remoteSaveQueue = Promise.resolve();
+const autoTrmAttemptKey = `${storageKey}-trm-auto-day`;
+let lastAutoTrmAttempt: string | undefined;
 
 function getSnapshot() {
   if (!hydrated && typeof window !== "undefined") {
@@ -102,6 +105,7 @@ function saveData(nextData: FinanceData, syncRemote = true, freshQuote?: Exchang
 }
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initialData);
   const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
   const refreshExchangeRate = useCallback(async () => {
@@ -115,12 +119,25 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initialRefresh = window.setTimeout(() => { void refreshExchangeRate(); }, 0);
-    const timer = window.setInterval(() => { void refreshExchangeRate(); }, 15 * 60 * 1000);
-    const onVisible = () => { if (document.visibilityState === "visible") void refreshExchangeRate(); };
+    if (pathname === "/login") return;
+    let timer: number;
+    const runScheduled = () => {
+      const now = new Date();
+      let attempted = lastAutoTrmAttempt;
+      try { attempted = window.localStorage.getItem(autoTrmAttemptKey) ?? attempted; } catch { /* Keep the in-memory attempt if storage is unavailable. */ }
+      if (document.visibilityState === "visible" && isDailyTrmRefreshDue(now, getSnapshot().exchangeRate?.date, attempted)) {
+        lastAutoTrmAttempt = bogotaDate(now);
+        try { window.localStorage.setItem(autoTrmAttemptKey, lastAutoTrmAttempt); } catch { /* The in-memory guard still avoids duplicate attempts. */ }
+        void refreshExchangeRate();
+      }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(runScheduled, Math.max(1000, nextTrmRefreshAt().getTime() - Date.now()));
+    };
+    timer = window.setTimeout(runScheduled, 0);
+    const onVisible = () => { if (document.visibilityState === "visible") runScheduled(); };
     document.addEventListener("visibilitychange", onVisible);
-    return () => { window.clearTimeout(initialRefresh); window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
-  }, [refreshExchangeRate]);
+    return () => { window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [refreshExchangeRate, pathname]);
 
   useEffect(() => {
     const controller = new AbortController();

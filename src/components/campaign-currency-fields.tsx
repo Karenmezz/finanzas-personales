@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Campaign, ExchangeRate } from "@/lib/finance";
 import { currency } from "@/lib/finance";
-import { trmCurrency, bogotaDate, makeUsdPayment, pendingUsdCents, usdCentsToCop, usdToCents } from "@/lib/usd";
+import { trmCurrency, bogotaDate, makeUsdPayment, pendingUsdCents, scheduledTrmDate, usdCentsToCop, usdToCents } from "@/lib/usd";
 import { fetchExchangeRate } from "@/lib/usd-client";
 import { useFinance } from "@/components/finance-provider";
 
@@ -12,7 +12,7 @@ export function campaignMoneyFromForm(form: FormData, quote?: ExchangeRate, camp
   if (money === "USD") {
     const cents = usdToCents(String(form.get("value")));
     if (campaign?.currency === "USD" && pendingUsdCents(campaign) === 0 && cents === campaign.usdValueCents) return { currency: "USD", usdValueCents: cents, value: campaign.value, exchangeRate: campaign.exchangeRate, exchangeRateDate: campaign.exchangeRateDate };
-    if (!quote || quote.date !== bogotaDate()) throw new Error("Actualiza la TRM vigente antes de guardar la campaña en dólares");
+    if (!quote || quote.date < scheduledTrmDate() || quote.date > bogotaDate()) throw new Error("Actualiza la TRM vigente antes de guardar la campaña en dólares");
     return { currency: "USD", usdValueCents: cents, exchangeRate: quote.value, exchangeRateDate: quote.date, value: usdCentsToCop(cents, quote.value) };
   }
   return { currency: "COP", usdValueCents: undefined, exchangeRate: undefined, exchangeRateDate: undefined, value: Number(form.get("value")) };
@@ -39,7 +39,7 @@ export function CampaignCurrencyFields({ campaign }: { campaign?: Campaign }) {
   const [money, setMoney] = useState(campaign?.currency ?? "COP");
   const [amount, setAmount] = useState(String(campaign?.currency === "USD" ? (campaign.usdValueCents ?? 0) / 100 : campaign?.value ?? ""));
   const inputRef = useRef<HTMLInputElement>(null);
-  const quote = data.exchangeRate?.date === bogotaDate() ? data.exchangeRate : undefined;
+  const quote = data.exchangeRate && data.exchangeRate.date >= scheduledTrmDate() && data.exchangeRate.date <= bogotaDate() ? data.exchangeRate : undefined;
   const locked = campaign?.currency === "USD" && Boolean(campaign.payments.length);
   const convertingPaid = money === "USD" && campaign?.currency !== "USD" && Boolean(campaign?.payments.length);
   const minimum = money === "USD" ? (campaign?.payments.reduce((sum, payment) => sum + (payment.usdAmountCents ?? 0), 0) ?? 0) / 100 : campaign?.payments.reduce((sum, payment) => sum + payment.amount, 0) ?? 0;
@@ -52,7 +52,7 @@ export function CampaignCurrencyFields({ campaign }: { campaign?: Campaign }) {
   try { if (money === "USD" && quote && amount) converted = currency.format(usdCentsToCop(usdToCents(amount), quote.value)); } catch { /* The input validation and submit handler report invalid decimals. */ }
   return <>
     <label><span className="label">Moneda de la campaña</span><select className="field" name={locked ? undefined : "currency"} value={money} disabled={locked} onChange={(event) => { setMoney(event.target.value as "COP" | "USD"); setAmount(""); }}><option value="COP">Pesos colombianos (COP)</option><option value="USD">Dólares (USD)</option></select>{locked && <><input type="hidden" name="currency" value={money} /><span className="mt-1 block text-[10px] text-slate-500">La moneda se conserva porque hay pagos registrados.</span></>}</label>
-    <label><span className="label">{money === "USD" ? "Valor acordado en dólares (USD)" : "Valor acordado en pesos (COP)"}</span><input ref={inputRef} className="field" name="value" aria-label={money === "USD" ? "Valor en dólares" : "Valor en pesos"} type="number" inputMode="decimal" min={minimum} step={money === "USD" ? "0.01" : "1"} value={amount} onChange={(event) => setAmount(event.target.value)} required />{money === "USD" && <span className="mt-1 block text-xs text-slate-500">{fixed ? `Pagos fijados: ${currency.format(campaign!.value)} COP · TRM de cada pago` : converted ? `≈ ${converted} COP · TRM ${trmCurrency.format(quote!.value)} del ${quote!.date}` : "Consultando la TRM vigente…"}</span>}{money === "USD" && !fixed && exchangeRateError && <span className="mt-1 block text-xs text-amber-700">{exchangeRateError} <button className="underline" type="button" onClick={() => { void refreshExchangeRate(); }}>Reintentar TRM</button></span>}</label>
+    <label><span className="label">{money === "USD" ? "Valor acordado en dólares (USD)" : "Valor acordado en pesos (COP)"}</span><input ref={inputRef} className="field" name="value" aria-label={money === "USD" ? "Valor en dólares" : "Valor en pesos"} type="number" inputMode="decimal" min={minimum} step={money === "USD" ? "0.01" : "1"} value={amount} onChange={(event) => setAmount(event.target.value)} required />{money === "USD" && <span className="mt-1 block text-xs text-slate-500">{fixed ? `Pagos fijados: ${currency.format(campaign!.value)} COP · TRM de cada pago` : converted ? `≈ ${converted} COP · TRM ${trmCurrency.format(quote!.value)} del ${quote!.date}` : "Consultando la TRM vigente…"}</span>}{money === "USD" && !fixed && (!quote || exchangeRateError) && <span className="mt-1 block text-xs text-amber-700">{exchangeRateError ?? "La actualización automática es a las 4:00 a. m. de Colombia."} <button className="underline" type="button" onClick={() => { void refreshExchangeRate(); }}>{exchangeRateError ? "Reintentar TRM" : "Consultar TRM ahora"}</button></span>}</label>
     {convertingPaid && <fieldset className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:col-span-2">
       <legend className="px-1 text-sm font-semibold text-amber-950">Pagos anteriores en dólares</legend>
       <p className="text-xs text-amber-900">Indica el importe original en USD de cada pago. Al guardar, sus valores en pesos se recalculan con la TRM de la fecha de recepción. No se adivinan los dólares a partir de los pesos.</p>

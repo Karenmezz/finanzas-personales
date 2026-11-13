@@ -7,6 +7,22 @@ export function bogotaDate(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
+export function nextTrmRefreshAt(now = new Date()) {
+  const todayAtFour = new Date(`${bogotaDate(now)}T04:00:00-05:00`);
+  return now.getTime() < todayAtFour.getTime() ? todayAtFour : new Date(todayAtFour.getTime() + 86400000);
+}
+
+export function scheduledTrmDate(now = new Date()) {
+  const cutoff = new Date(`${bogotaDate(now)}T04:00:00-05:00`);
+  return bogotaDate(now.getTime() < cutoff.getTime() ? new Date(now.getTime() - 86400000) : now);
+}
+
+export function isDailyTrmRefreshDue(now: Date, quoteDate?: string, attemptedDate?: string) {
+  const today = bogotaDate(now);
+  if (now.getTime() < new Date(`${today}T04:00:00-05:00`).getTime()) return false;
+  return (!quoteDate || quoteDate < today) && (!attemptedDate || attemptedDate < today);
+}
+
 export function isDateOnly(date: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const parsed = new Date(`${date}T00:00:00Z`);
@@ -38,9 +54,10 @@ export function revalueCampaign(campaign: Campaign, quote?: ExchangeRate): Campa
   const paid = campaign.payments.reduce((sum, payment) => sum + payment.amount, 0);
   const pending = pendingUsdCents(campaign);
   if (pending === 0) return { ...campaign, value: paid };
-  const rate = quote?.value ?? campaign.exchangeRate;
+  const applicableQuote = quote && (!campaign.exchangeRateDate || quote.date >= campaign.exchangeRateDate) ? quote : undefined;
+  const rate = applicableQuote?.value ?? campaign.exchangeRate;
   if (!rate) return campaign;
-  return { ...campaign, value: paid + usdCentsToCop(pending, rate), exchangeRate: rate, exchangeRateDate: quote?.date ?? campaign.exchangeRateDate };
+  return { ...campaign, value: paid + usdCentsToCop(pending, rate), exchangeRate: rate, exchangeRateDate: applicableQuote?.date ?? campaign.exchangeRateDate };
 }
 
 export function revalueFinanceData(data: FinanceData, quote = data.exchangeRate): FinanceData {

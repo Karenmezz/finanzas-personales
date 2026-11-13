@@ -1,6 +1,6 @@
 import "server-only";
 import { getExchangeRate } from "@/lib/trm";
-import { pendingUsdCents, revalueFinanceData } from "@/lib/usd";
+import { pendingUsdCents, revalueFinanceData, scheduledTrmDate } from "@/lib/usd";
 import { db } from "@/db";
 import { bills, campaigns, expenses, monthColors, payments } from "@/db/schema";
 import { availableYears } from "@/lib/finance";
@@ -76,7 +76,7 @@ export async function getFinanceData(): Promise<FinanceData> {
   }
   if (missingBills.length) await db.insert(bills).values(missingBills).onConflictDoNothing();
   if (result.campaigns.some((campaign) => campaign.currency === "USD" && pendingUsdCents(campaign) > 0)) {
-    try { return revalueFinanceData(result, await getExchangeRate()); }
+    try { return revalueFinanceData(result, await getExchangeRate(scheduledTrmDate())); }
     catch (error) { console.error("Se conservó la última valoración de las campañas en USD", error); }
   }
   return revalueFinanceData(result);

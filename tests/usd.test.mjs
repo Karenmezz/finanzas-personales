@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bogotaDate, isDateOnly, makeUsdPayment, pendingUsdCents, revalueCampaign, revalueFinanceData, usdCentsToCop, usdToCents, validateCampaignMoney } from '../src/lib/usd.ts';
+import { bogotaDate, isDailyTrmRefreshDue, nextTrmRefreshAt, scheduledTrmDate, isDateOnly, makeUsdPayment, pendingUsdCents, revalueCampaign, revalueFinanceData, usdCentsToCop, usdToCents, validateCampaignMoney } from '../src/lib/usd.ts';
 
 const quote = (value = 4000, date = '2026-11-01') => ({ value, date, validFrom: date, validTo: date, source: 'Superintendencia Financiera de Colombia' });
 const campaign = (changes = {}) => ({ id: 'usd-campaign', name: 'Video', brand: 'Marca', network: 'Instagram', month: '2026-11', dueDate: '2026-11-30', status: 'Realizado', currency: 'USD', usdValueCents: 50000, value: 2000000, exchangeRate: 4000, exchangeRateDate: '2026-11-01', payments: [], ...changes });
@@ -102,4 +102,42 @@ test('invalid or overpaid dollar records cannot be saved', () => {
   assert.equal(validateCampaignMoney(campaign({ payments: [{ ...payment, amount: 400000 }] })), false);
   assert.equal(validateCampaignMoney(campaign({ usdValueCents: 9999, payments: [payment] })), false);
   assert.equal(validateCampaignMoney(campaign({ currency: 'COP', payments: [payment] })), false);
+});
+
+test('automatic TRM waits until 4 am Colombia and schedules that exact cutoff', () => {
+  const before = new Date('2026-11-13T08:59:59Z');
+  assert.equal(scheduledTrmDate(before), '2026-11-12');
+  assert.equal(nextTrmRefreshAt(before).toISOString(), '2026-11-13T09:00:00.000Z');
+  assert.equal(isDailyTrmRefreshDue(before), false);
+  const atFour = new Date('2026-11-13T09:00:00Z');
+  assert.equal(scheduledTrmDate(atFour), '2026-11-13');
+  assert.equal(isDailyTrmRefreshDue(atFour, '2026-11-12'), true);
+  assert.equal(nextTrmRefreshAt(atFour).toISOString(), '2026-11-14T09:00:00.000Z');
+});
+
+test('same-day quote or attempt prevents repeated automatic requests on reopening', () => {
+  const afternoon = new Date('2026-11-13T20:00:00Z');
+  assert.equal(isDailyTrmRefreshDue(afternoon, '2026-11-13'), false);
+  assert.equal(isDailyTrmRefreshDue(afternoon, '2026-11-12', '2026-11-13'), false);
+  assert.equal(isDailyTrmRefreshDue(afternoon, undefined, '2026-11-13'), false);
+});
+
+test('a missed 4 am refresh is due on the next open after the cutoff', () => {
+  const morning = new Date('2026-11-14T13:30:00Z');
+  assert.equal(isDailyTrmRefreshDue(morning, '2026-11-13', '2026-11-13'), true);
+  assert.equal(nextTrmRefreshAt(morning).toISOString(), '2026-11-15T09:00:00.000Z');
+});
+
+test('daily scheduling respects Colombia at midnight, year changes and leap days', () => {
+  assert.equal(scheduledTrmDate(new Date('2027-01-01T07:00:00Z')), '2026-12-31');
+  assert.equal(nextTrmRefreshAt(new Date('2027-01-01T07:00:00Z')).toISOString(), '2027-01-01T09:00:00.000Z');
+  assert.equal(scheduledTrmDate(new Date('2028-03-01T08:00:00Z')), '2028-02-29');
+  assert.equal(scheduledTrmDate(new Date('2026-11-14T04:59:59Z')), '2026-11-13');
+});
+
+test('an automatic scheduled quote never rolls back a newer manually obtained quote', () => {
+  const stored = campaign({ exchangeRate: 4500, exchangeRateDate: '2026-11-13', value: 2250000 });
+  const result = revalueCampaign(stored, quote(4000, '2026-11-12'));
+  assert.equal(result.value, 2250000);
+  assert.equal(result.exchangeRateDate, '2026-11-13');
 });
