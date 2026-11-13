@@ -68,3 +68,14 @@ export const userProfile = sqliteTable("user_profile", {
   id: text("id").primaryKey(),
   value: text("value", { mode: "json" }).$type<UserProfile>().notNull(),
 });
+
+export const personalTasks = sqliteTable("personal_tasks", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  notes: text("notes").notNull().default(""),
+  referenceUrl: text("reference_url").notNull().default(""),
+  category: text("category", { enum: ["", "Redes", "Casa", "Personal", "Otro"] }).notNull().default(""),
+  completed: integer("completed", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

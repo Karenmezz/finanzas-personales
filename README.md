@@ -70,7 +70,7 @@ En producción configura las mismas variables privadas. Todas las páginas y la 
 
 - El aviso de cobros de otros meses incluye únicamente meses anteriores al seleccionado.
 - Las campañas, cuentas y gastos pagados se ocultan al entrar; usa **Mostrar pagados** para consultarlos. En Finanzas vuelven a ocultarse al cambiar de mes o año.
-- **Marcas que más pagan** muestra el ranking del mes en Finanzas y del año en Dashboard, ordenado por pagos recibidos, con valor acordado y promedio por campaña. Agrupa variantes de mayúsculas, tildes y espacios y excluye los ingresos personales.
+- **Marcas que más pagan** muestra el ranking del año en Dashboard, ordenado por pagos recibidos, con valor acordado y promedio por campaña. Agrupa variantes de mayúsculas, tildes y espacios y excluye los ingresos personales.
 
 Para comprobar la lógica de recurrencias, ranking y cobros anteriores (Node.js 24):
 
@@ -82,8 +82,8 @@ npx next typegen && npx tsc --noEmit
 
 ## Secciones
 
-- **Contenidos** (`/contenidos`): campañas, pagos de marcas, cobros de meses anteriores, calendario y una subsección **Marcas** (`/contenidos/marcas`). El selector de marcas permite consultar campañas y pagos de todos los meses, agrupando variantes del nombre; los pagados se ocultan por defecto.
-- **Dashboard**: indicadores compactos, con fondos de color sutiles e iconos, con una barra de categorías deslizable: General, Finanzas, Contenidos, Marcas y Movimientos. General reúne salario, marcas, cuentas y gastos extras; las otras categorías muestran sus propios indicadores y detalles, manteniendo el año seleccionado. El balance usa dinero recibido menos gastos pagados.
+- **Contenidos** (`/contenidos`): campañas, pagos de marcas, cobros de meses anteriores, calendario, canjes y pendientes personales. Las marcas se consultan en la sección existente de Dashboard, con selector e historial del año elegido y finalizadas ocultas por defecto.
+- **Dashboard**: indicadores compactos, con fondos de color sutiles e iconos, con una barra de categorías deslizable: General, Finanzas, Contenidos, Canjes, Marcas y Movimientos. General reúne salario, marcas, cuentas y gastos extras; las otras categorías muestran sus propios indicadores y detalles, manteniendo el año seleccionado. El balance usa dinero recibido menos gastos pagados.
 - **Movimientos**: selector de sección para consultar el historial de cada área por separado.
 
 ## Campañas en dólares
@@ -106,7 +106,7 @@ node tests/usd.test.mjs
 
 ### Canjes y campañas mixtas
 
-En Contenidos hay pestañas **Campañas pagas**, **Canjes** y **Marcas**. Al crear o editar una colaboración se puede elegir Paga, Canje o Mixta (pago y canje). Las mixtas permanecen en Campañas pagas y muestran el beneficio separado del pago.
+En Contenidos hay pestañas **Campañas pagas**, **Calendario**, **Canjes** y **Pendientes**. Al crear o editar una colaboración se puede elegir Paga, Canje o Mixta (pago y canje). Las mixtas permanecen en Campañas pagas y muestran el beneficio separado del pago.
 
 - **Productos:** descripción, cantidad y recepción. No se registra precio ni valoración monetaria.
 - **Bono o saldo:** finalidad, valor en COP, recepción, vencimiento opcional y uso parcial del saldo. Registrar uso no crea un gasto ni un ingreso en efectivo.
@@ -144,10 +144,20 @@ El endpoint autenticado del perfil prepara automáticamente su tabla si todavía
 
 ### Calendario único de contenidos
 
-La barra superior de Contenidos permite deslizar entre **Campañas pagas**, **Calendario**, **Canjes** y **Marcas**. El único calendario está en `/contenidos/calendario` y solo se muestra al elegir esa pestaña; se retiraron los calendarios de las listas de campañas y canjes.
+La barra superior de Contenidos permite deslizar entre **Campañas pagas**, **Calendario**, **Canjes** y **Pendientes**. El único calendario está en `/contenidos/calendario` y solo se muestra al elegir esa pestaña; se retiraron los calendarios de las listas de campañas y canjes.
 
 Asigna **Fecha de entrega del contenido (opcional)** al crear o editar. El calendario reúne pagas, canjes y mixtas, incluso pagadas o publicadas, según la fecha de entrega y no el mes de cobro ni la fecha esperada de pago. Los registros sin fecha no generan eventos. Las fechas ya guardadas se conservan en el mismo campo existente, sin migración.
 
 Permite elegir mes, avanzar/retroceder y volver con Hoy. Tocar un día filtra el tablero inferior; Ver todo el mes restaura las entregas del mes. La cuadrícula se adapta a móvil sin desplazamiento horizontal. El diseño conserva la base neutra y usa el color configurado del mes solo en detalles de borde, selección y festivos nacionales de Colombia (incluye traslados al lunes y fechas de Semana Santa). Al seleccionar un festivo se muestra su nombre.
 
 Debajo del calendario está el kanban Pendiente / En producción / Publicado. Incluye entregas del mes y, opcionalmente, contenidos sin fecha de todos los meses. Al seleccionar un día se limita a sus entregas. Permite arrastrar tarjetas en computador o usar el selector de estado de cada tarjeta en móvil. Los cambios se guardan sobre las mismas campañas sin modificar pagos ni beneficios. En móvil las tres columnas caben juntas dentro del ancho del teléfono, con tarjetas y controles compactos y listas con desplazamiento vertical. En escritorio conservan tamaños amplios. Editar permite asignar, mover o quitar fechas desde esta vista.
+
+### Pendientes personales y marcas en Dashboard
+
+Contenidos tiene **Campañas pagas / Calendario / Canjes / Pendientes**. Pendientes es un checklist independiente para ideas de redes, guías o tareas de la casa, sin importes ni fechas obligatorias. Solo requiere un título; permite notas, categoría opcional (Redes, Casa, Personal u Otro), enlace de referencia HTTP/HTTPS, edición, check para completar/restaurar y eliminación. Los completados se ocultan inicialmente y se consultan con Mostrar completados; se puede filtrar por categoría.
+
+Se guarda mediante `/api/tasks`, con autenticación y respuestas privadas sin caché, en `personal_tasks`, aparte de campañas, pagos, calendario e indicadores financieros. Marcar un check se refleja al momento y se revierte si falla el guardado. No se consulta ni incrusta automáticamente el contenido del enlace de referencia.
+
+Las marcas se consultan en la pestaña **Marcas** ya existente de Dashboard, con selector e historial del año elegido. No se agregan pestañas al Dashboard. La antigua ruta `/contenidos/marcas` redirige a Dashboard.
+
+La migración `0005_true_agent_zero` agrega únicamente la tabla de pendientes y usa `IF NOT EXISTS`. El endpoint puede prepararla automáticamente si sigue pendiente, conservando la posibilidad de aplicar `npm run db:migrate` después. No se migran tareas a campañas ni se convierten en cobros.

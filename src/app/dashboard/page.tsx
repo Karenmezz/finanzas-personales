@@ -7,6 +7,7 @@ import { SummaryCard } from "@/components/summary-card";
 import { useFinance } from "@/components/finance-provider";
 import { availableYears, currency } from "@/lib/finance";
 import { FinanceCharts } from "@/components/finance-charts";
+import { BrandBrowser } from "@/components/brand-browser";
 import { BrandRanking } from "@/components/brand-ranking";
 
 const tabs = [
@@ -115,7 +116,7 @@ export default function DashboardPage() {
         <section className="card mt-6"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Estado del contenido</h2><Link className="button-secondary" href="/contenidos">Campañas y calendario</Link></div><dl className="mt-4 grid gap-3 sm:grid-cols-3">{["Pendiente", "En producción", "Realizado"].map((status) => <div key={status} className="rounded-xl bg-slate-50 p-4"><dt className="text-sm text-slate-500">{status}</dt><dd className="mt-2 text-xl font-bold">{summary.contentCampaigns.filter((campaign) => campaign.status === status).length}</dd></div>)}</dl></section>
         <FinanceCharts data={scopedData} year={selectedYear} scope="content" />
       </>}
-      {tab === "brands" && <><div className="mt-6 flex justify-end"><Link className="button-secondary" href="/contenidos/marcas">Consultar una marca</Link></div><BrandRanking campaigns={summary.brandCampaigns} period={String(selectedYear)} scrollable /></>}
+      {tab === "brands" && <div className="mt-5"><BrandBrowser key={selectedYear} campaigns={summary.contentCampaigns} period={String(selectedYear)} /></div>}
       {tab === "movements" && <section className="card mt-6" aria-label="Últimos movimientos"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Últimos movimientos</h2><p className="mt-1 text-xs text-slate-500">Los pagos de cuentas usan la fecha de vencimiento registrada.</p></div><Link className="button-secondary" href="/movimientos">Ver historial</Link></div><div className="mt-4 divide-y divide-slate-100">{movements.slice(0, 12).map((movement) => <article key={movement.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><h3 className="break-words text-sm font-semibold">{movement.concept}</h3><p className="mt-1 text-xs text-slate-500">{movement.category} · {movement.date}</p></div><p className={`shrink-0 text-sm font-bold ${movement.income ? "text-emerald-700" : "text-rose-700"}`}>{movement.income ? "+" : "−"}{currency.format(movement.amount)}</p></article>)}</div>{movements.length === 0 && <p className="mt-4 text-sm text-slate-500">No hay movimientos registrados para este año.</p>}</section>}
     </div>
   </div>;
