@@ -118,7 +118,7 @@ La migración `0002_shocking_korvac.sql` agrega la columna opcional `campaigns.b
 
 ### Configuración mensual
 
-En `/configuracion` se administran **Gastos fijos** e **Ingresos fijos** con nombre, categoría/origen, valor, día del mes, fecha de inicio y fecha final opcional. Una cuenta nueva empieza hoy o en una fecha posterior; no genera meses anteriores. Los días 29–31 se ajustan al fin de meses cortos. Se pueden pausar o reactivar.
+En `/configuracion` se administran **Gastos fijos** e **Ingresos fijos** con nombre, categoría/origen, valor, día del mes, fecha de inicio y fecha final opcional. Los gastos nuevos empiezan hoy o en una fecha posterior. Los ingresos permiten configurar una fecha de inicio anterior y completar los meses que falten desde ella. Los días 29–31 se ajustan al fin de meses cortos. Se pueden pausar o reactivar.
 
 Desde Finanzas, **Ajustar valor** permite elegir **Solo este mes** (ej. una factura variable) o **Este mes y los siguientes**. Los ajustes individuales se conservan al cambiar el valor habitual. Los meses anteriores y registros con pagos quedan intactos al cambiar la configuración. Eliminar una obligación mensual omite ese mes sin volver a crearlo; finalizar o pausar la regla detiene las pendientes del mes actual y futuros.
 
@@ -165,3 +165,10 @@ La migración `0005_true_agent_zero` agrega únicamente la tabla de pendientes y
 ### Formularios sin autozoom en iPhone
 
 Los campos de texto, números, fechas, listas y áreas de notas usan un mínimo de 16 px en teléfonos y dispositivos táctiles, incluso cuando están dentro de controles compactos. Esto evita el aumento automático de Safari al enfocar campos pequeños. Se retiró el enfoque automático de los pendientes; la edición desde el calendario enfoca el primer campo solo en escritorio. El viewport conserva el zoom manual del navegador y los tamaños de campos de escritorio se mantienen.
+
+
+### Inicio histórico de los ingresos fijos
+
+Los ingresos respetan su fecha de inicio configurada, incluso si corresponde a un mes anterior. La fecha de inicio de ingresos es editable. Al adelantarla hacia el pasado se conserva la primera tarifa guardada para completar su cobertura; no se reemplazan importes de meses ya registrados ni pagos totales/parciales. Los gastos siguen generándose solo desde el mes actual y no reciben esta corrección.
+
+La corrección puntual solicitada mueve al **1 de octubre de 2026** los ingresos existentes cuyo inicio estaba entre esa fecha y el 13 de noviembre de 2026. Usa los valores de cada configuración, conserva versiones posteriores y evita duplicar ingresos del mismo mes. Los meses faltantes se crean pendientes, sin inventar pagos. Un marcador en `data_adjustments` evita repetir el ajuste o deshacer cambios posteriores del usuario. La tabla se prepara automáticamente y la migración `0006_majestic_sleeper` es idempotente. Los ingresos nuevos mantienen su fecha configurable; no se fija un importe ni una fecha personal como valor general del formulario.

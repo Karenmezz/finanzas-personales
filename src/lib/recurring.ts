@@ -31,7 +31,8 @@ export function recurringDate(rule: RecurringRule, period: string) {
   return rule.endOn && effectiveDate > rule.endOn ? undefined : effectiveDate;
 }
 
-// Generate only from the current month onward. Recorded past months and payments are immutable here.
+// Expenses generate from the current month; incomes honor their configured historical start.
+// Recorded past months and payments remain immutable here.
 export function materializeRecurring(data: FinanceData, years: number[], today = todayInColombia()): FinanceData {
   if (!data.recurring) return data;
   const periodNow = today.slice(0, 7);
@@ -56,9 +57,13 @@ export function materializeRecurring(data: FinanceData, years: number[], today =
   }
   const occupiedBills = new Set(bills.filter((bill) => bill.recurringId).map((bill) => `${bill.recurringId}:${bill.dueDate.slice(0, 7)}`));
   const occupiedIncomes = new Set(campaigns.filter((campaign) => campaign.recurringId).map((campaign) => `${campaign.recurringId}:${campaign.month ?? campaign.dueDate.slice(0, 7)}`));
+  const normalizeIncome=(value:string)=>value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+  for (const campaign of campaigns) if (campaign.incomeType === "personal" && !campaign.recurringId) {
+    for (const rule of rules.values()) if (rule.kind === "income" && normalizeIncome(campaign.name) === normalizeIncome(rule.name) && normalizeIncome(campaign.brand) === normalizeIncome(rule.category)) occupiedIncomes.add(`${rule.id}:${campaign.month ?? campaign.dueDate.slice(0,7)}`);
+  }
   for (const rule of rules.values()) for (const year of new Set(years)) for (let month = 1; month <= 12; month++) {
     const period = `${year}-${String(month).padStart(2, "0")}`;
-    if (period < periodNow) continue;
+    if (period < periodNow && rule.kind === "expense") continue;
     const date = recurringDate(rule, period);
     if (!date) continue;
     const key = `${rule.id}:${period}`;
@@ -124,4 +129,16 @@ export function adoptExistingRecurring(data: FinanceData, today = todayInColombi
     for (const row of rows) (kind === "expense" ? billIds : campaignIds).set(row.id, id);
   }
   return { ...data, recurring: { version: 1, rules }, bills: data.bills.map((bill) => billIds.has(bill.id) ? { ...bill, recurringId: billIds.get(bill.id), manualOverride: bill.manualOverride || (bill.dueDate.slice(0, 7) === today.slice(0, 7) && bill.dueDate < today) } : bill), campaigns: data.campaigns.map((campaign) => campaignIds.has(campaign.id) ? { ...campaign, recurringId: campaignIds.get(campaign.id), manualOverride: campaign.manualOverride || (campaign.dueDate.slice(0, 7) === today.slice(0, 7) && campaign.dueDate < today) } : campaign) };
+}
+
+// Extend a configurable start date while preserving all already saved rate versions.
+export function withRecurringStart(rule: RecurringRule, startOn: string): RecurringRule {
+  if (!validDate(startOn)) throw new Error("Selecciona una fecha de inicio válida");
+  const first=[...rule.versions].sort((a,b)=>a.from.localeCompare(b.from))[0];
+  const period=startOn.slice(0,7);
+  return { ...rule,startOn,versions:first&&!rule.versions.some(version=>version.from<=period)?[{...first,from:period},...rule.versions]:rule.versions };
+}
+
+export function backdateCurrentIncome(settings: RecurringSettings, startOn: string, through: string): RecurringSettings {
+  return { ...settings,rules:settings.rules.map(rule=>rule.kind==="income"&&rule.startOn>startOn&&rule.startOn<=through&&(!rule.endOn||rule.endOn>=startOn)?withRecurringStart(rule,startOn):rule) };
 }

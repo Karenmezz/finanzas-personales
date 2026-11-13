@@ -79,3 +79,7 @@ export const personalTasks = sqliteTable("personal_tasks", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const dataAdjustments = sqliteTable("data_adjustments", {
+  id: text("id").primaryKey(),
+});

@@ -1,6 +1,7 @@
 import "server-only";
 import { getExchangeRate } from "@/lib/trm";
 import { pendingUsdCents, revalueFinanceData, scheduledTrmDate } from "@/lib/usd";
+import { applyIncomeStartAdjustment } from "@/db/income-start-adjustment";
 import { db } from "@/db";
 import { bills, campaigns, expenses, monthColors, payments, financeSettings } from "@/db/schema";
 import { availableYears } from "@/lib/finance";
@@ -42,7 +43,9 @@ export async function getFinanceData(): Promise<FinanceData> {
     for (const bill of adopted.bills) if (bill.recurringId) await tx.update(bills).set({ recurringId: bill.recurringId, manualOverride: bill.manualOverride }).where(eq(bills.id, bill.id));
     for (const campaign of adopted.campaigns) if (campaign.recurringId) await tx.update(campaigns).set({ recurringId: campaign.recurringId, manualOverride: campaign.manualOverride }).where(eq(campaigns.id, campaign.id));
   });
-  const result = materializeRecurring(adopted, availableYears(adopted));
+  const correctedSettings = await applyIncomeStartAdjustment();
+  const corrected = { ...adopted, recurring: correctedSettings ?? adopted.recurring };
+  const result = materializeRecurring(corrected, availableYears(corrected));
   if (result.campaigns.some((campaign) => campaign.currency === "USD" && pendingUsdCents(campaign) > 0)) {
     try { return revalueFinanceData(result, await getExchangeRate(scheduledTrmDate())); }
     catch (error) { console.error("Se conservó la última valoración de las campañas en USD", error); }
