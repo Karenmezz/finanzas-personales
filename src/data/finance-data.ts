@@ -1,4 +1,6 @@
 import "server-only";
+import { getExchangeRate } from "@/lib/trm";
+import { pendingUsdCents, revalueFinanceData } from "@/lib/usd";
 import { db } from "@/db";
 import { bills, campaigns, expenses, monthColors, payments } from "@/db/schema";
 import { availableYears } from "@/lib/finance";
@@ -53,9 +55,12 @@ export async function getFinanceData(): Promise<FinanceData> {
   const data: FinanceData = {
     campaigns: campaignRows.map((campaign) => ({
       ...campaign,
+      usdValueCents: campaign.usdValueCents ?? undefined,
+      exchangeRate: campaign.exchangeRate ?? undefined,
+      exchangeRateDate: campaign.exchangeRateDate ?? undefined,
       collaborationType: campaign.collaborationType ?? undefined,
       contentDueDate: campaign.contentDueDate ?? undefined,
-      payments: paymentRows.filter((payment) => payment.campaignId === campaign.id).map(({ id, amount, date }) => ({ id, amount, date })),
+      payments: paymentRows.filter((payment) => payment.campaignId === campaign.id).map(({ id, amount, date, usdAmountCents, exchangeRate, exchangeRateDate }) => ({ id, amount, date, usdAmountCents: usdAmountCents ?? undefined, exchangeRate: exchangeRate ?? undefined, exchangeRateDate: exchangeRateDate ?? undefined })),
     })),
     bills: billRows.map((bill) => ({ ...bill, note: bill.note ?? undefined })),
     expenses: expenseRows,
@@ -70,7 +75,11 @@ export async function getFinanceData(): Promise<FinanceData> {
     await db.insert(campaigns).values(missingCampaigns.map((campaign) => ({ id: campaign.id, name: campaign.name, brand: campaign.brand, network: campaign.network, collaborationType: campaign.collaborationType, month: campaign.month ?? campaign.dueDate.slice(0, 7), value: campaign.value, dueDate: campaign.dueDate, status: campaign.status }))).onConflictDoUpdate({ target: campaigns.id, set: { value: 3100000 } });
   }
   if (missingBills.length) await db.insert(bills).values(missingBills).onConflictDoNothing();
-  return result;
+  if (result.campaigns.some((campaign) => campaign.currency === "USD" && pendingUsdCents(campaign) > 0)) {
+    try { return revalueFinanceData(result, await getExchangeRate()); }
+    catch (error) { console.error("Se conservó la última valoración de las campañas en USD", error); }
+  }
+  return revalueFinanceData(result);
 }
 
 export async function replaceFinanceData(data: FinanceData) {
@@ -90,6 +99,10 @@ export async function replaceFinanceData(data: FinanceData) {
         collaborationType: campaign.collaborationType,
         month: campaign.month ?? campaign.dueDate.slice(0, 7),
         value: campaign.value,
+        currency: campaign.currency ?? "COP",
+        usdValueCents: campaign.usdValueCents ?? null,
+        exchangeRate: campaign.exchangeRate ?? null,
+        exchangeRateDate: campaign.exchangeRateDate ?? null,
         dueDate: campaign.dueDate,
         contentDueDate: campaign.contentDueDate || null,
         status: campaign.status,

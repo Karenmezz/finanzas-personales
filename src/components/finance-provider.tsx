@@ -1,7 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
-import type { Bill, Campaign, Expense, FinanceData } from "@/lib/finance";
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import type { Bill, Campaign, ExchangeRate, Expense, FinanceData } from "@/lib/finance";
+import { bogotaDate, makeUsdPayment, revalueFinanceData } from "@/lib/usd";
+import { fetchExchangeRate } from "@/lib/usd-client";
 import { initialData } from "@/lib/finance";
 
 type FinanceContextValue = {
@@ -10,6 +12,9 @@ type FinanceContextValue = {
   updateCampaign: (id: string, changes: Partial<Campaign>) => void;
   deleteCampaign: (id: string) => void;
   addPayment: (campaignId: string, amount: number) => void;
+  addUsdPayment: (campaignId: string, cents: number, date: string, quote: ExchangeRate) => void;
+  refreshExchangeRate: () => Promise<void>;
+  exchangeRateError: string | null;
   removeLastPayment: (campaignId: string) => void;
   addExpense: (expense: Expense) => void;
   updateExpense: (id: string, changes: Partial<Expense>) => void;
@@ -56,6 +61,7 @@ function getSnapshot() {
         monthColors: { ...initialData.monthColors, ...parsed.monthColors },
       };
     }
+    currentData = revalueFinanceData(currentData);
     hydrated = true;
   }
   return currentData;
@@ -84,7 +90,11 @@ function queueRemoteSave(nextData: FinanceData) {
     .catch((error) => console.error("El cambio quedó guardado localmente", error));
 }
 
-function saveData(nextData: FinanceData, syncRemote = true) {
+function saveData(nextData: FinanceData, syncRemote = true, freshQuote?: ExchangeRate) {
+  const previousRate = currentData.exchangeRate;
+  const nextRate = nextData.exchangeRate;
+  const quote = freshQuote ?? (previousRate && (!nextRate || previousRate.date >= nextRate.date) ? previousRate : nextRate);
+  nextData = revalueFinanceData(nextData, quote);
   currentData = nextData;
   window.localStorage.setItem(storageKey, JSON.stringify(nextData));
   listeners.forEach((listener) => listener());
@@ -93,6 +103,24 @@ function saveData(nextData: FinanceData, syncRemote = true) {
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initialData);
+  const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
+  const refreshExchangeRate = useCallback(async () => {
+    try {
+      const quote = await fetchExchangeRate();
+      saveData(revalueFinanceData(getSnapshot(), quote), false, quote);
+      setExchangeRateError(null);
+    } catch (error) {
+      setExchangeRateError(error instanceof Error ? error.message : "No fue posible actualizar la TRM");
+    }
+  }, []);
+
+  useEffect(() => {
+    const initialRefresh = window.setTimeout(() => { void refreshExchangeRate(); }, 0);
+    const timer = window.setInterval(() => { void refreshExchangeRate(); }, 15 * 60 * 1000);
+    const onVisible = () => { if (document.visibilityState === "visible") void refreshExchangeRate(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.clearTimeout(initialRefresh); window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [refreshExchangeRate]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -124,6 +152,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const value: FinanceContextValue = {
     data,
+    exchangeRateError,
+    refreshExchangeRate,
+    addUsdPayment: (campaignId, cents, date, quote) => update((current) => ({
+      ...current,
+      campaigns: current.campaigns.map((campaign) => campaign.id === campaignId
+        ? { ...campaign, payments: [...campaign.payments, makeUsdPayment(campaign, cents, date, quote, crypto.randomUUID())] } : campaign),
+    })),
     addCampaign: (campaign) =>
       update((current) => ({
         ...current,
@@ -141,7 +176,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         ...current,
         campaigns: current.campaigns.filter((item) => item.id !== id),
       })),
-    addPayment: (campaignId, amount) =>
+    addPayment: (campaignId, amount) => {
+      const campaign = getSnapshot().campaigns.find((item) => item.id === campaignId);
+      if (!campaign || campaign.currency === "USD") throw new Error("Registra el pago en dólares con su fecha y TRM");
+      const pending = campaign.value - campaign.payments.reduce((sum, payment) => sum + payment.amount, 0);
+      if (!Number.isSafeInteger(amount) || amount <= 0 || amount > pending) throw new Error("El pago no puede superar el saldo pendiente");
       update((current) => ({
         ...current,
         campaigns: current.campaigns.map((campaign) =>
@@ -153,13 +192,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
                   {
                     id: crypto.randomUUID(),
                     amount,
-                    date: new Date().toISOString().slice(0, 10),
+                    date: bogotaDate(),
                   },
                 ],
               }
             : campaign,
         ),
-      })),
+      }));
+    },
     removeLastPayment: (campaignId) =>
       update((current) => ({
         ...current,

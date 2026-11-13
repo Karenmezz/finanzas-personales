@@ -8,6 +8,13 @@
       "when": 1788288406744,
       "tag": "0000_sleepy_scrambler",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794574915771,
+      "tag": "0001_petite_human_fly",
+      "breakpoints": true
     }
   ]
 }

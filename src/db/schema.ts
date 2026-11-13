@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const campaigns = sqliteTable("campaigns", {
   id: text("id").primaryKey(),
@@ -8,6 +8,10 @@ export const campaigns = sqliteTable("campaigns", {
   collaborationType: text("collaboration_type"),
   month: text("month").notNull(),
   value: integer("value").notNull(),
+  currency: text("currency", { enum: ["COP", "USD"] }).notNull().default("COP"),
+  usdValueCents: integer("usd_value_cents"),
+  exchangeRate: real("exchange_rate"),
+  exchangeRateDate: text("exchange_rate_date"),
   dueDate: text("due_date").notNull(),
   contentDueDate: text("content_due_date"),
   status: text("status", { enum: ["Pendiente", "En producción", "Realizado"] }).notNull(),
@@ -18,6 +22,9 @@ export const payments = sqliteTable("payments", {
   campaignId: text("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
   amount: integer("amount").notNull(),
   date: text("date").notNull(),
+  usdAmountCents: integer("usd_amount_cents"),
+  exchangeRate: real("exchange_rate"),
+  exchangeRateDate: text("exchange_rate_date"),
 });
 
 export const expenses = sqliteTable("expenses", {

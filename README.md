@@ -87,3 +87,21 @@ npx next typegen && npx tsc --noEmit
 - **Contenidos** (`/contenidos`): campañas, pagos de marcas, cobros de meses anteriores, calendario y una subsección **Marcas** (`/contenidos/marcas`). El selector de marcas permite consultar campañas y pagos de todos los meses, agrupando variantes del nombre; los pagados se ocultan por defecto.
 - **Dashboard**: indicadores compactos, con fondos de color sutiles e iconos, con una barra de categorías deslizable: General, Finanzas, Contenidos, Marcas y Movimientos. General reúne salario, marcas, cuentas y gastos extras; las otras categorías muestran sus propios indicadores y detalles, manteniendo el año seleccionado. El balance usa dinero recibido menos gastos pagados.
 - **Movimientos**: selector de sección para consultar el historial de cada área por separado.
+
+## Campañas en dólares
+
+Al crear o editar una campaña, selecciona COP o USD y escribe el importe en esa moneda. Las campañas en COP conservan sus importes y pagos existentes.
+
+- La conversión usa la TRM oficial publicada por la Superintendencia Financiera de Colombia en [Datos Abiertos](https://www.datos.gov.co/resource/32sa-8pi3.json), con su fecha y período de vigencia. La TRM es una referencia oficial diaria; la tasa aplicada por un banco o plataforma puede ser diferente.
+- Los dólares pendientes se valoran con la TRM vigente. La aplicación la consulta al cargar, al volver a la pestaña y cada 15 minutos mientras esté abierta. Los totales de campañas, marcas y Dashboard incluyen los pagos fijos en COP más el saldo en USD valorado a esa TRM.
+- Al registrar un pago USD, indica el importe recibido (admite abonos) y la fecha real. Se guarda el importe original en centavos de USD, la TRM histórica de esa fecha y el valor en COP redondeado al peso. Los pagos guardados no cambian al actualizar la TRM. Una campaña totalmente pagada conserva la suma de sus pagos.
+- Para corregir una campaña antigua en COP que ya tenía pagos, selecciona USD al editar e indica el importe original en USD de cada pago y su fecha. Se recalculan explícitamente con la TRM histórica; no se infieren dólares a partir de pesos. Después de registrar pagos USD, la moneda de la campaña queda protegida para conservar el historial.
+- Si la TRM no está disponible, se conserva y se identifica la última valoración de los pendientes. No se permite registrar un nuevo pago USD sin la TRM correspondiente a su fecha. No se inventan tasas ni se admiten fechas futuras de pago.
+
+Esta funcionalidad requiere ejecutar `npm run db:migrate` antes de desplegar. La migración agrega columnas a campañas y pagos, conserva los registros existentes y los identifica como COP.
+
+Pruebas de conversión e historial (Node.js 24):
+
+```bash
+node tests/usd.test.mjs
+```

@@ -1,4 +1,5 @@
 import { getFinanceData, replaceFinanceData } from "@/data/finance-data";
+import { bogotaDate, isDateOnly, revalueFinanceData, validateCampaignMoney } from "@/lib/usd";
 import type { FinanceData } from "@/lib/finance";
 import { cookies } from "next/headers";
 import { sessionCookieName, verifySessionToken } from "@/auth/session";
@@ -13,7 +14,9 @@ async function isAdmin() {
 function isFinanceData(value: unknown): value is FinanceData {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<FinanceData>;
-  return Boolean(Array.isArray(candidate.campaigns) && Array.isArray(candidate.bills) && Array.isArray(candidate.expenses) && candidate.monthColors && typeof candidate.monthColors === "object");
+  const quote = candidate.exchangeRate;
+  if (quote !== undefined && (!quote || !Number.isFinite(quote.value) || quote.value <= 0 || !isDateOnly(quote.date) || quote.date > bogotaDate() || !isDateOnly(quote.validFrom) || !isDateOnly(quote.validTo) || quote.date < quote.validFrom || quote.date > quote.validTo)) return false;
+  return Boolean(Array.isArray(candidate.campaigns) && candidate.campaigns.every(validateCampaignMoney) && Array.isArray(candidate.bills) && Array.isArray(candidate.expenses) && candidate.monthColors && typeof candidate.monthColors === "object");
 }
 
 export async function GET() {
@@ -31,7 +34,7 @@ export async function PUT(request: Request) {
   try {
     const data: unknown = await request.json();
     if (!isFinanceData(data)) return Response.json({ error: "Datos inválidos" }, { status: 400 });
-    await replaceFinanceData(data);
+    await replaceFinanceData(revalueFinanceData(data));
     return Response.json({ ok: true });
   } catch (error) {
     console.error("No fue posible guardar las finanzas", error);

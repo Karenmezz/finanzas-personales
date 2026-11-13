@@ -1,5 +1,22 @@
 import importedData from "./default-data.json";
 
+export type ExchangeRate = {
+  date: string;
+  value: number;
+  validFrom: string;
+  validTo: string;
+  source: "Superintendencia Financiera de Colombia";
+};
+
+export type CampaignPayment = {
+  id: string;
+  amount: number;
+  date: string;
+  usdAmountCents?: number;
+  exchangeRate?: number;
+  exchangeRateDate?: string;
+};
+
 export type Campaign = {
   id: string;
   name: string;
@@ -8,10 +25,14 @@ export type Campaign = {
   collaborationType?: string;
   month?: string;
   value: number;
+  currency?: "COP" | "USD";
+  usdValueCents?: number;
+  exchangeRate?: number;
+  exchangeRateDate?: string;
   dueDate: string;
   contentDueDate?: string;
   status: "Pendiente" | "En producción" | "Realizado";
-  payments: { id: string; amount: number; date: string }[];
+  payments: CampaignPayment[];
 };
 
 export type Expense = {
@@ -34,6 +55,7 @@ export type Bill = {
 };
 
 export type FinanceData = {
+  exchangeRate?: ExchangeRate;
   campaigns: Campaign[];
   expenses: Expense[];
   bills: Bill[];

@@ -1,5 +1,6 @@
 "use client";
 
+import { CampaignUsdDetails } from "@/components/campaign-usd-details";
 import { useState } from "react";
 import { ContentNavigation } from "@/components/content-navigation";
 import { useFinance } from "@/components/finance-provider";
@@ -34,7 +35,7 @@ export default function BrandsPage() {
       </dl>
       <div className="grid gap-4 lg:grid-cols-2">{visible.map((campaign) => <article className="card" key={campaign.id}>
         <div className="flex flex-wrap justify-between gap-3"><div><h3 className="font-semibold">{campaign.name}</h3><p className="mt-1 text-sm text-slate-500">{campaign.month ?? campaign.dueDate.slice(0, 7)} · {campaign.network}</p><p className="mt-1 text-sm text-slate-500">{campaign.collaborationType ?? "Paga"} · {campaign.status}</p></div><div className="text-right"><p className="font-bold">{currency.format(campaign.value)}</p><p className="mt-1 text-sm text-slate-500">{campaign.value === 0 ? "Canje / sin cobro" : pending(campaign) > 0 ? `${currency.format(pending(campaign))} por cobrar` : "Pagada"}</p></div></div>
-        <p className="mt-3 text-sm text-slate-500">Pago esperado: {campaign.dueDate}</p>{campaign.contentDueDate && <p className="mt-1 text-sm text-slate-500">Publicación: {campaign.contentDueDate}</p>}
+        <CampaignUsdDetails campaign={campaign} /><p className="mt-3 text-sm text-slate-500">Pago esperado: {campaign.dueDate}</p>{campaign.contentDueDate && <p className="mt-1 text-sm text-slate-500">Publicación: {campaign.contentDueDate}</p>}
       </article>)}</div>
       {visible.length === 0 && <p className="card text-slate-500">No hay campañas pendientes de pago. Puedes consultar el historial con Mostrar pagados.</p>}
     </section> : <>{brands.length === 0 ? <p className="card text-slate-500">Las marcas aparecerán cuando registres campañas en Contenidos.</p> : <p className="text-sm text-slate-500">Elige una marca del selector para ver su historial.</p>}<BrandRanking campaigns={data.campaigns} period="Todos los meses" /></>}
