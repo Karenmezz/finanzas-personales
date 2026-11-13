@@ -28,11 +28,10 @@ export default function BrandsPage() {
       <option value="">Selecciona una marca</option>{brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name} ({brand.campaigns.length})</option>)}
     </select></label>
     {selected ? <section aria-label={`Campañas de ${selected.name}`}>
-      <h2 className="text-xl font-bold">{selected.name}</h2>
+      <div className="flex items-start justify-between gap-3"><h2 className="min-w-0 text-xl font-bold">{selected.name}</h2>{paidCount > 0 && <button type="button" className="button-secondary ml-auto shrink-0" aria-pressed={showPaid} onClick={() => setShowPaid(!showPaid)}>{showPaid ? `Ocultar pagados (${paidCount})` : `Mostrar pagados (${paidCount})`}</button>}</div>
       <dl className="my-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[["Campañas", String(campaigns.length)], ["Total acordado", currency.format(agreed)], ["Recibido", currency.format(paid)], ["Por cobrar", currency.format(campaigns.reduce((sum, campaign) => sum + pending(campaign), 0))]].map(([label, value]) => <div key={label} className="card"><dt className="text-sm text-slate-500">{label}</dt><dd className="mt-2 text-xl font-bold">{value}</dd></div>)}
       </dl>
-      {paidCount > 0 && <button type="button" className="button-secondary mb-4" aria-pressed={showPaid} onClick={() => setShowPaid(!showPaid)}>{showPaid ? `Ocultar pagados (${paidCount})` : `Mostrar pagados (${paidCount})`}</button>}
       <div className="grid gap-4 lg:grid-cols-2">{visible.map((campaign) => <article className="card" key={campaign.id}>
         <div className="flex flex-wrap justify-between gap-3"><div><h3 className="font-semibold">{campaign.name}</h3><p className="mt-1 text-sm text-slate-500">{campaign.month ?? campaign.dueDate.slice(0, 7)} · {campaign.network}</p><p className="mt-1 text-sm text-slate-500">{campaign.collaborationType ?? "Paga"} · {campaign.status}</p></div><div className="text-right"><p className="font-bold">{currency.format(campaign.value)}</p><p className="mt-1 text-sm text-slate-500">{campaign.value === 0 ? "Canje / sin cobro" : pending(campaign) > 0 ? `${currency.format(pending(campaign))} por cobrar` : "Pagada"}</p></div></div>
         <p className="mt-3 text-sm text-slate-500">Pago esperado: {campaign.dueDate}</p>{campaign.contentDueDate && <p className="mt-1 text-sm text-slate-500">Publicación: {campaign.contentDueDate}</p>}
