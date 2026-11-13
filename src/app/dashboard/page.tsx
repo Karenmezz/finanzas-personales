@@ -90,7 +90,7 @@ export default function DashboardPage() {
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-4" aria-label="Indicadores financieros">{indicators.map((indicator, index) => <SummaryCard key={indicator.titulo} {...indicator} compacto tono={(["slate", "emerald", "amber", "indigo"] as const)[index]} />)}</section>
 
       {tab === "general" && <>
-        <section className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Origen de los ingresos">
+        <section className="mt-3 grid grid-cols-2 gap-2" aria-label="Origen de los ingresos">
           <SummaryCard tono="indigo" titulo="Salario de Fundación de la Mujer" valor={currency.format(salaryTotal)} detalle="Fijo mensual de $3.100.000 desde octubre de 2026" />
           <SummaryCard tono="emerald" titulo="Campañas de marcas" valor={currency.format(brandTotal)} detalle={`${summary.brandCampaigns.length} campañas en el año seleccionado`} />
         </section>

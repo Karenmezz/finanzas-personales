@@ -17,14 +17,14 @@ const tones = {
 
 export function SummaryCard({ titulo, valor, detalle, compacto = false, tono = "slate" }: SummaryCardProps) {
   const theme = tones[tono];
-  return <article className={`min-w-0 rounded-2xl border ${theme.card} ${compacto ? "px-3 py-3 sm:px-4" : "p-4"}`}>
+  return <article className={`min-w-0 rounded-2xl border ${theme.card} ${compacto ? "px-2.5 py-2 sm:p-4" : "p-3 sm:p-4"}`}>
     <div className="flex items-start justify-between gap-2">
-      <p className={`${compacto ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm"} font-medium leading-snug text-slate-600`}>{titulo}</p>
-      <span aria-hidden="true" className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${theme.icon}`}>
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={theme.path} /></svg>
+      <p className={`${compacto ? "text-[10px] sm:text-xs" : "text-[11px] sm:text-sm"} font-medium leading-snug text-slate-600`}>{titulo}</p>
+      <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 sm:h-6 sm:w-6 items-center justify-center rounded-lg ${theme.icon}`}>
+        <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={theme.path} /></svg>
       </span>
     </div>
-    <p className={`mt-1 break-words font-bold leading-tight tracking-tight tabular-nums ${theme.value} ${compacto ? "text-base min-[375px]:text-lg sm:text-xl" : "text-xl sm:text-2xl"}`}>{valor}</p>
-    <p className={`mt-1.5 leading-snug text-slate-500 ${compacto ? "text-[10px] sm:text-[11px]" : "text-[11px] sm:text-xs"}`}>{detalle}</p>
+    <p className={`mt-1 break-words font-bold leading-tight tracking-tight tabular-nums ${theme.value} ${compacto ? "text-base min-[375px]:text-lg sm:text-xl" : "text-base min-[375px]:text-lg sm:text-2xl"}`}>{valor}</p>
+    <p className={`mt-1 leading-snug text-slate-500 ${compacto ? "text-[10px] sm:text-[11px]" : "text-[10px] sm:text-xs"}`}>{detalle}</p>
   </article>;
 }
