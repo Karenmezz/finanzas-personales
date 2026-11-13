@@ -90,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="mt-6 flex flex-col gap-2 pb-1" aria-label="Navegación principal">
           {links.map(([label, href]) => {
-            const active = pathname === href;
+            const active = pathname === href || (href === "/contenidos" && pathname.startsWith("/contenidos/"));
             return (
               <Link
                 key={href}

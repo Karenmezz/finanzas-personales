@@ -69,11 +69,22 @@ export type FinanceArea = "finances" | "content";
 
 export function selectFinanceArea(data: FinanceData, area: FinanceArea): FinanceData {
   const content = area === "content";
-  const workCategories = new Set(["trabajo", "produccion", "contenido", "publicidad"]);
   return {
     ...data,
     campaigns: data.campaigns.filter((campaign) => isFoundationSalary(campaign) !== content),
     bills: content ? [] : data.bills,
-    expenses: data.expenses.filter((expense) => workCategories.has(normalizeName(expense.category)) === content),
+    expenses: content ? [] : data.expenses,
   };
+}
+
+export function campaignsByBrand(campaigns: Campaign[]) {
+  const brands = new Map<string, { id: string; name: string; campaigns: Campaign[] }>();
+  for (const campaign of campaigns) {
+    if (isFoundationSalary(campaign)) continue;
+    const id = `brand:${normalizeName(campaign.brand)}`;
+    const brand = brands.get(id) ?? { id, name: campaign.brand.trim() || "Sin marca", campaigns: [] };
+    brand.campaigns.push(campaign);
+    brands.set(id, brand);
+  }
+  return [...brands.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
 }

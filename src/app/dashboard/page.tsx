@@ -62,7 +62,7 @@ export default function Home() {
         </article>
         <article className="card">
           <h2 className="text-lg font-semibold">Organiza cada sección</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">En Contenidos administra campañas, marcas, publicaciones y gastos de trabajo. En Finanzas administra el salario y las cuentas de la casa. El resumen y los movimientos se filtran por la sección seleccionada.</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">En Contenidos administra campañas, marcas y publicaciones. En Finanzas administra el salario, las cuentas de la casa y todos los gastos extras. El resumen y los movimientos se filtran por la sección seleccionada.</p>
         </article>
       </section>
       </CollapsibleSection>

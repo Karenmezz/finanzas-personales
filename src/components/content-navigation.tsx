@@ -1,0 +1,12 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+export function ContentNavigation() {
+  const pathname = usePathname();
+  return <nav className="mb-6 flex gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1.5" aria-label="Secciones de contenidos">
+    {[["/contenidos", "Campañas y calendario"], ["/contenidos/marcas", "Marcas"]].map(([href, label]) =>
+      <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined} className={`flex-1 rounded-xl px-3 py-2 text-center text-sm font-semibold ${pathname === href ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:bg-white"}`}>{label}</Link>)}
+  </nav>;
+}
