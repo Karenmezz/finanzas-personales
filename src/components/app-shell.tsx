@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-white text-slate-800 md:grid md:h-screen md:grid-cols-[240px_1fr] md:overflow-hidden">
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
         <Link href="/" className="font-bold text-slate-950">
-          Mi organización
+          Mis finanzas
         </Link>
         <button
           ref={menuButtonRef}
@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex items-center justify-between gap-4">
           <Link href="/" className="text-lg font-bold text-slate-950" onClick={closeMobileMenu}>
-            Mi organización
+            Mis finanzas
           </Link>
           <button
             ref={closeButtonRef}
