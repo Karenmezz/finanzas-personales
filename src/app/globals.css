@@ -33,3 +33,68 @@ body {
     width: calc(100% - 1.5rem - 2px);
   }
 }
+
+/* Leave content and touch targets clear of the floating bar and the iPhone home area. */
+@media (max-width: 767px) {
+  .app-main { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+  html { scroll-padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+}
+.mobile-bottom-nav {
+  position: fixed;
+  z-index: 40;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 24px);
+  max-width: 440px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  gap: 2px;
+  padding: 7px;
+  border: 1px solid rgb(226 232 240 / 80%);
+  border-radius: 28px;
+  background: rgb(255 255 255 / 95%);
+  box-shadow: 0 8px 35px rgb(15 23 42 / 12%);
+  backdrop-filter: blur(18px);
+}
+.mobile-nav-item {
+  display: flex;
+  min-width: 0;
+  min-height: 58px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 21px;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+  transition: color .15s, background .15s;
+}
+.mobile-nav-item:hover { background: #f5f3ff; color: #4c1d95; }
+.mobile-nav-item:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+.mobile-nav-active { background: #0f172a; color: white; }
+.mobile-nav-active:hover { background: #1e293b; color: white; }
+.mobile-create { gap: 2px; color: #4c1d95; }
+.mobile-action-sheet {
+  position: fixed;
+  inset: auto 0 0;
+  width: 100%;
+  max-width: 480px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  margin: 0 auto;
+  padding: 12px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  border: 1px solid #e2e8f0;
+  border-radius: 28px 28px 0 0;
+  background: white;
+  color: #1e293b;
+  box-shadow: 0 -8px 40px rgb(15 23 42 / 12%);
+}
+.mobile-action-sheet::backdrop { background: rgb(15 23 42 / 35%); backdrop-filter: blur(3px); }
+@media (min-width: 768px) { .mobile-bottom-nav { display: none; } }
+@media (prefers-reduced-motion: reduce) { .mobile-nav-item { transition: none; } }
+
+#nuevo-registro { scroll-margin-top: 80px; scroll-margin-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }

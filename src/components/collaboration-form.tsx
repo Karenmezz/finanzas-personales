@@ -68,7 +68,7 @@ export function CollaborationForm({ campaign, period, defaultType = "Paga", embe
     } finally { setSaving(false); }
   }
 
-  return <form onSubmit={submit} className={`${embedded ? "mb-3" : "card mb-5"} grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3`} aria-label={campaign ? "Editar colaboración" : "Nueva colaboración"}>
+  return <form id={campaign ? undefined : "nuevo-registro"} onSubmit={submit} className={`${embedded ? "mb-3" : "card mb-5"} grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3`} aria-label={campaign ? "Editar colaboración" : "Nueva colaboración"}>
     <label><span className="label">Campaña</span><input className="field" name="name" defaultValue={campaign?.name} required /></label>
     <label><span className="label">Marca</span><input className="field" name="brand" defaultValue={campaign?.brand} required /></label>
     <label><span className="label">Tipo de colaboración</span><select className="field" name="collaborationType" value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}><option value="paid">Paga</option><option value="barter" disabled={Boolean(campaign?.payments.length)}>Canje</option><option value="mixed">Mixta: pago y canje</option></select></label>

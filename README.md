@@ -125,3 +125,9 @@ Desde Finanzas, **Ajustar valor** permite elegir **Solo este mes** (ej. una fact
 La migración `0003_naive_ezekiel_stane` añade configuraciones y referencias de recurrencia y clasifica ingresos históricos. La primera consulta convierte las recurrencias existentes desde los registros de la base, sin incorporar importes ni datos personales del código. Las reglas quedan editables. No se modifican los importes de meses pasados ni pagos registrados. Ejecutar `npm run db:migrate` antes del despliegue.
 
 Se eliminó el archivo de datos personales precargados. Una instalación nueva empieza vacía. El importador opcional recibe un archivo privado explícito: `npm run db:import-json -- /ruta/privada/datos.json`. El servidor es la fuente al sincronizar y ya no se reinsertan datos personales iniciales desde el navegador.
+
+### Navegación en teléfonos
+
+En pantallas menores de 768 px se muestra una barra inferior flotante con iconos y etiquetas: Dashboard, Finanzas, Agregar, Contenidos y Más. Agregar abre accesos a gasto, campaña, canje e ingreso mensual; cada acceso abre el formulario correspondiente y lleva a él, incluso al repetirlo en la misma página. Más reúne Movimientos, Configuración y cerrar sesión.
+
+Los paneles usan un diálogo nativo con foco contenido, cierre con Escape y devolución del foco al botón de origen; se cierran al cambiar a escritorio. La barra respeta el área segura del dispositivo y el contenido deja espacio inferior para seguir accesible al desplazarse. En escritorio se mantiene el menú lateral, ahora con iconos. La pantalla de acceso no muestra navegación.

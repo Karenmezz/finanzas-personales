@@ -13,13 +13,13 @@ import type { Campaign } from "@/lib/finance";
 import { currency } from "@/lib/finance";
 import { bogotaDate } from "@/lib/usd";
 
-export function BarterWorkspace({ initialPeriod, initialEditId }: { initialPeriod?: string; initialEditId?: string }) {
+export function BarterWorkspace({ initialPeriod, initialEditId, initialCreating = false }: { initialPeriod?: string; initialEditId?: string; initialCreating?: boolean }) {
   const { data, updateCampaign, deleteCampaign } = useFinance();
   const router = useRouter();
   const todayPeriod = bogotaDate().slice(0, 7);
   const [period, setPeriod] = useState(initialPeriod ?? "");
   const [showCompleted, setShowCompleted] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(initialCreating);
   const [editingId, setEditingId] = useState<string | null>(initialEditId ?? null);
   const content = selectFinanceArea(data, "content").campaigns;
   const all = content.filter(isBarterCampaign);
