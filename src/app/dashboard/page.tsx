@@ -94,8 +94,8 @@ export default function DashboardPage() {
           <SummaryCard tono="indigo" titulo="Salario de Fundación de la Mujer" valor={currency.format(salaryTotal)} detalle="Fijo mensual de $3.100.000 desde octubre de 2026" />
           <SummaryCard tono="emerald" titulo="Campañas de marcas" valor={currency.format(brandTotal)} detalle={`${summary.brandCampaigns.length} campañas en el año seleccionado`} />
         </section>
-        <BrandRanking campaigns={summary.brandCampaigns} period={String(selectedYear)} />
         <FinanceCharts data={data} year={selectedYear} />
+        <BrandRanking campaigns={summary.brandCampaigns} period={String(selectedYear)} scrollable />
       </>}
       {tab === "finances" && <>
         <section className="card mt-6" aria-label="Finanzas del hogar"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Casa y salario</h2><Link className="button-secondary" href="/">Abrir Finanzas</Link></div><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt>Salario pendiente de recibir</dt><dd className="font-semibold">{currency.format(summary.pending)}</dd></div><div className="flex justify-between gap-3"><dt>Cuentas y gastos pendientes</dt><dd className="font-semibold">{currency.format(summary.pendingExpenses)}</dd></div></dl></section>
@@ -105,7 +105,7 @@ export default function DashboardPage() {
         <section className="card mt-6"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Estado del contenido</h2><Link className="button-secondary" href="/contenidos">Campañas y calendario</Link></div><dl className="mt-4 grid gap-3 sm:grid-cols-3">{["Pendiente", "En producción", "Realizado"].map((status) => <div key={status} className="rounded-xl bg-slate-50 p-4"><dt className="text-sm text-slate-500">{status}</dt><dd className="mt-2 text-xl font-bold">{summary.brandCampaigns.filter((campaign) => campaign.status === status).length}</dd></div>)}</dl></section>
         <FinanceCharts data={scopedData} year={selectedYear} scope="content" />
       </>}
-      {tab === "brands" && <><div className="mt-6 flex justify-end"><Link className="button-secondary" href="/contenidos/marcas">Consultar una marca</Link></div><BrandRanking campaigns={summary.brandCampaigns} period={String(selectedYear)} /></>}
+      {tab === "brands" && <><div className="mt-6 flex justify-end"><Link className="button-secondary" href="/contenidos/marcas">Consultar una marca</Link></div><BrandRanking campaigns={summary.brandCampaigns} period={String(selectedYear)} scrollable /></>}
       {tab === "movements" && <section className="card mt-6" aria-label="Últimos movimientos"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Últimos movimientos</h2><p className="mt-1 text-xs text-slate-500">Los pagos de cuentas usan la fecha de vencimiento registrada.</p></div><Link className="button-secondary" href="/movimientos">Ver historial</Link></div><div className="mt-4 divide-y divide-slate-100">{movements.slice(0, 12).map((movement) => <article key={movement.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><h3 className="break-words text-sm font-semibold">{movement.concept}</h3><p className="mt-1 text-xs text-slate-500">{movement.category} · {movement.date}</p></div><p className={`shrink-0 text-sm font-bold ${movement.income ? "text-emerald-700" : "text-rose-700"}`}>{movement.income ? "+" : "−"}{currency.format(movement.amount)}</p></article>)}</div>{movements.length === 0 && <p className="mt-4 text-sm text-slate-500">No hay movimientos registrados para este año.</p>}</section>}
     </div>
   </div>;
