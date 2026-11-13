@@ -1,15 +1,25 @@
 "use client";
 
-import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
-import type { Bill, Campaign, Expense, FinanceData } from "@/lib/finance";
-import { initialData } from "@/lib/finance";
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import type { Bill, Campaign, ExchangeRate, Expense, FinanceData, RecurringRule } from "@/lib/finance";
+import { usePathname } from "next/navigation";
+import { bogotaDate, isDailyTrmRefreshDue, nextTrmRefreshAt, makeUsdPayment, revalueFinanceData } from "@/lib/usd";
+import { fetchExchangeRate } from "@/lib/usd-client";
+import { isBarterCampaign } from "@/lib/finance-insights";
+import { adoptExistingRecurring, changeRecurringAmount, materializeRecurring } from "@/lib/recurring";
+import { availableYears, initialData } from "@/lib/finance";
 
 type FinanceContextValue = {
   data: FinanceData;
+  saveRecurringRule: (rule: RecurringRule) => void;
+  changeMonthlyAmount: (kind: "expense" | "income", id: string, amount: number, scope: "month" | "future") => void;
   addCampaign: (campaign: Campaign) => void;
   updateCampaign: (id: string, changes: Partial<Campaign>) => void;
   deleteCampaign: (id: string) => void;
   addPayment: (campaignId: string, amount: number) => void;
+  addUsdPayment: (campaignId: string, cents: number, date: string, quote: ExchangeRate) => void;
+  refreshExchangeRate: (date?: string) => Promise<void>;
+  exchangeRateError: string | null;
   removeLastPayment: (campaignId: string) => void;
   addExpense: (expense: Expense) => void;
   updateExpense: (id: string, changes: Partial<Expense>) => void;
@@ -27,35 +37,17 @@ let currentData = initialData;
 let hydrated = false;
 const listeners = new Set<() => void>();
 let remoteSaveQueue = Promise.resolve();
+const autoTrmAttemptKey = `${storageKey}-trm-auto-day`;
+let lastAutoTrmAttempt: string | undefined;
 
 function getSnapshot() {
   if (!hydrated && typeof window !== "undefined") {
     const saved = window.localStorage.getItem(storageKey);
     if (saved) {
       const parsed = JSON.parse(saved) as FinanceData;
-      currentData = {
-        ...parsed,
-        campaigns: parsed.campaigns.map((campaign) => ({
-          ...campaign,
-          contentDueDate:
-            campaign.contentDueDate ??
-            initialData.campaigns.find((seed) => seed.id === campaign.id)
-              ?.contentDueDate,
-        })),
-        bills: [
-          ...parsed.bills,
-          ...initialData.bills.filter(
-            (seed) =>
-              !parsed.bills.some(
-                (bill) =>
-                  bill.name.trim() === seed.name.trim() &&
-                  bill.dueDate.slice(0, 7) === seed.dueDate.slice(0, 7),
-              ),
-          ),
-        ],
-        monthColors: { ...initialData.monthColors, ...parsed.monthColors },
-      };
+      currentData = { ...parsed, monthColors: { ...initialData.monthColors, ...parsed.monthColors } };
     }
+    currentData = revalueFinanceData(currentData);
     hydrated = true;
   }
   return currentData;
@@ -64,10 +56,6 @@ function getSnapshot() {
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
-}
-
-function hasFinancialRecords(data: FinanceData) {
-  return data.campaigns.length > 0 || data.bills.length > 0 || data.expenses.length > 0;
 }
 
 function queueRemoteSave(nextData: FinanceData) {
@@ -84,7 +72,12 @@ function queueRemoteSave(nextData: FinanceData) {
     .catch((error) => console.error("El cambio quedó guardado localmente", error));
 }
 
-function saveData(nextData: FinanceData, syncRemote = true) {
+function saveData(nextData: FinanceData, syncRemote = true, freshQuote?: ExchangeRate) {
+  nextData = { ...nextData, monthColors: { ...initialData.monthColors, ...nextData.monthColors } };
+  const previousRate = currentData.exchangeRate;
+  const nextRate = nextData.exchangeRate;
+  const quote = freshQuote ?? (previousRate && (!nextRate || previousRate.date >= nextRate.date) ? previousRate : nextRate);
+  nextData = revalueFinanceData(materializeRecurring(nextData, availableYears(nextData)), quote);
   currentData = nextData;
   window.localStorage.setItem(storageKey, JSON.stringify(nextData));
   listeners.forEach((listener) => listener());
@@ -92,7 +85,39 @@ function saveData(nextData: FinanceData, syncRemote = true) {
 }
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initialData);
+  const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
+  const refreshExchangeRate = useCallback(async (date = bogotaDate()) => {
+    try {
+      const quote = await fetchExchangeRate(date);
+      saveData(revalueFinanceData(getSnapshot(), quote), false, quote);
+      setExchangeRateError(null);
+    } catch (error) {
+      setExchangeRateError(error instanceof Error ? error.message : "No fue posible actualizar la TRM");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pathname === "/login") return;
+    let timer: number;
+    const runScheduled = () => {
+      const now = new Date();
+      let attempted = lastAutoTrmAttempt;
+      try { attempted = window.localStorage.getItem(autoTrmAttemptKey) ?? attempted; } catch { /* Keep the in-memory attempt if storage is unavailable. */ }
+      if (document.visibilityState === "visible" && isDailyTrmRefreshDue(now, getSnapshot().exchangeRate?.date, attempted)) {
+        lastAutoTrmAttempt = bogotaDate(now);
+        try { window.localStorage.setItem(autoTrmAttemptKey, lastAutoTrmAttempt); } catch { /* The in-memory guard still avoids duplicate attempts. */ }
+        void refreshExchangeRate();
+      }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(runScheduled, Math.max(1000, nextTrmRefreshAt().getTime() - Date.now()));
+    };
+    timer = window.setTimeout(runScheduled, 0);
+    const onVisible = () => { if (document.visibilityState === "visible") runScheduled(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [refreshExchangeRate, pathname]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -104,11 +129,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         });
         if (!response.ok) return;
         const remoteData = (await response.json()) as FinanceData;
-        const localData = getSnapshot();
-        if (!hasFinancialRecords(remoteData) && hasFinancialRecords(localData)) {
-          console.warn("Se conservó el respaldo local porque la base remota llegó vacía");
-          return;
-        }
         saveData(remoteData, false);
       } catch (error) {
         if (!controller.signal.aborted) console.error("Se usará el respaldo local", error);
@@ -124,6 +144,18 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const value: FinanceContextValue = {
     data,
+    saveRecurringRule: (rule) => update((current) => {
+      const adopted = adoptExistingRecurring(current);
+      return { ...adopted, recurring: { version: 1, rules: [...adopted.recurring!.rules.filter((item) => item.id !== rule.id), rule] } };
+    }),
+    changeMonthlyAmount: (kind, id, amount, scope) => update((current) => changeRecurringAmount(current, kind, id, amount, scope)),
+    exchangeRateError,
+    refreshExchangeRate,
+    addUsdPayment: (campaignId, cents, date, quote) => update((current) => ({
+      ...current,
+      campaigns: current.campaigns.map((campaign) => campaign.id === campaignId
+        ? { ...campaign, payments: [...campaign.payments, makeUsdPayment(campaign, cents, date, quote, crypto.randomUUID())] } : campaign),
+    })),
     addCampaign: (campaign) =>
       update((current) => ({
         ...current,
@@ -141,7 +173,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         ...current,
         campaigns: current.campaigns.filter((item) => item.id !== id),
       })),
-    addPayment: (campaignId, amount) =>
+    addPayment: (campaignId, amount) => {
+      const campaign = getSnapshot().campaigns.find((item) => item.id === campaignId);
+      if (!campaign || isBarterCampaign(campaign) || campaign.currency === "USD") throw new Error("Registra el pago en dólares con su fecha y TRM");
+      const pending = campaign.value - campaign.payments.reduce((sum, payment) => sum + payment.amount, 0);
+      if (!Number.isSafeInteger(amount) || amount <= 0 || amount > pending) throw new Error("El pago no puede superar el saldo pendiente");
       update((current) => ({
         ...current,
         campaigns: current.campaigns.map((campaign) =>
@@ -153,13 +189,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
                   {
                     id: crypto.randomUUID(),
                     amount,
-                    date: new Date().toISOString().slice(0, 10),
+                    date: bogotaDate(),
                   },
                 ],
               }
             : campaign,
         ),
-      })),
+      }));
+    },
     removeLastPayment: (campaignId) =>
       update((current) => ({
         ...current,
@@ -206,6 +243,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       update((current) => ({
         ...current,
         bills: current.bills.filter((item) => item.id !== id),
+        recurring: current.recurring ? { ...current.recurring, rules: current.recurring.rules.map((rule) => {
+          const bill = current.bills.find((item) => item.id === id && item.recurringId === rule.id);
+          return bill ? { ...rule, skippedPeriods: [...new Set([...(rule.skippedPeriods ?? []), bill.dueDate.slice(0, 7)])] } : rule;
+        }) } : current.recurring,
       })),
     updateMonthColor: (month, color) =>
       update((current) => ({

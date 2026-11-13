@@ -1,19 +1,30 @@
+type CardTone = "slate" | "emerald" | "amber" | "indigo";
+
 type SummaryCardProps = {
   titulo: string;
   valor: string;
   detalle: string;
+  compacto?: boolean;
+  tono?: CardTone;
 };
 
-export function SummaryCard({
-  titulo,
-  valor,
-  detalle,
-}: SummaryCardProps) {
-  return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-medium text-slate-600">{titulo}</p>
-      <p className="mt-3 text-3xl font-bold tracking-tight">{valor}</p>
-      <p className="mt-3 text-sm leading-6 text-slate-500">{detalle}</p>
-    </article>
-  );
+const tones = {
+  slate: { card: "border-slate-200 bg-slate-50/80", icon: "bg-slate-200/70 text-slate-600", value: "text-slate-900", path: "M4 16V8m5 8V4m5 12v-6m5 6V6" },
+  emerald: { card: "border-emerald-100 bg-emerald-50/70", icon: "bg-emerald-100 text-emerald-700", value: "text-emerald-950", path: "M5 12l4 4L19 6" },
+  amber: { card: "border-amber-100 bg-amber-50/70", icon: "bg-amber-100 text-amber-700", value: "text-amber-950", path: "M12 5v7l4 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" },
+  indigo: { card: "border-indigo-100 bg-indigo-50/70", icon: "bg-indigo-100 text-indigo-700", value: "text-indigo-950", path: "M4 17l6-6 4 4 6-9m-6 0h6v6" },
+};
+
+export function SummaryCard({ titulo, valor, detalle, compacto = false, tono = "slate" }: SummaryCardProps) {
+  const theme = tones[tono];
+  return <article className={`min-w-0 rounded-2xl border ${theme.card} ${compacto ? "px-2.5 py-2 sm:p-4" : "p-3 sm:p-4"}`}>
+    <div className="flex items-start justify-between gap-2">
+      <p className={`${compacto ? "text-[10px] sm:text-xs" : "text-[11px] sm:text-sm"} font-medium leading-snug text-slate-600`}>{titulo}</p>
+      <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 sm:h-6 sm:w-6 items-center justify-center rounded-lg ${theme.icon}`}>
+        <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={theme.path} /></svg>
+      </span>
+    </div>
+    <p className={`mt-1 break-words font-bold leading-tight tracking-tight tabular-nums ${theme.value} ${compacto ? "text-base min-[375px]:text-lg sm:text-xl" : "text-base min-[375px]:text-lg sm:text-2xl"}`}>{valor}</p>
+    <p className={`mt-1 leading-snug text-slate-500 ${compacto ? "text-[10px] sm:text-[11px]" : "text-[10px] sm:text-xs"}`}>{detalle}</p>
+  </article>;
 }

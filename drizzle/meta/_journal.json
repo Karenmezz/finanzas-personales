@@ -8,6 +8,41 @@
       "when": 1788288406744,
       "tag": "0000_sleepy_scrambler",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794574915771,
+      "tag": "0001_petite_human_fly",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794582159157,
+      "tag": "0002_shocking_korvac",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794583608347,
+      "tag": "0003_naive_ezekiel_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1794585615723,
+      "tag": "0004_rich_lila_cheney",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794589642475,
+      "tag": "0005_true_agent_zero",
+      "breakpoints": true
     }
   ]
 }

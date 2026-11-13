@@ -8,12 +8,12 @@ loadEnvConfig(process.cwd());
 const url = process.env.TURSO_DATABASE_URL;
 const authToken = process.env.TURSO_AUTH_TOKEN;
 
-if (!url || !authToken) {
+if (!url || (url.startsWith("libsql:") && !authToken)) {
   throw new Error("Faltan TURSO_DATABASE_URL o TURSO_AUTH_TOKEN en .env.local");
 }
 
 const source = JSON.parse(
-  await readFile(new URL("../src/lib/imported-data.json", import.meta.url), "utf8"),
+  await readFile(process.argv[2] ?? (() => { throw new Error("Indica la ruta del archivo JSON privado a importar"); })(), "utf8"),
 );
 const client = createClient({ url, authToken });
 
