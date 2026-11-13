@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { brandRanking, withMonthlyDefaults, previousPendingCampaigns } from '../src/lib/finance-insights.ts';
+import { brandRanking, withMonthlyDefaults, previousPendingCampaigns, configureMonthlySalary } from '../src/lib/finance-insights.ts';
 
 const campaign = (overrides = {}) => ({ id: 'campaign', name: 'Video', brand: 'Marca', network: 'Instagram', value: 100, month: '2026-11', dueDate: '2026-11-30', status: 'Realizado', payments: [], ...overrides });
 const empty = () => ({ campaigns: [], bills: [], expenses: [], monthColors: {} });
@@ -62,4 +62,28 @@ test('pending carryover includes only older months, including previous years', (
   ];
   assert.deepEqual(previousPendingCampaigns(records, '2026-11').map((item) => item.campaign.id).sort(), ['legacy', 'previous-month', 'previous-year']);
   assert.deepEqual(previousPendingCampaigns(records, '2026-01').map((item) => item.campaign.id), ['previous-year']);
+});
+
+test('configured salary overrides template for missing months and works without an existing salary', () => {
+  const data = { ...empty(), monthlySalary: 3200000 };
+  const result = withMonthlyDefaults(data, [2026]);
+  assert.equal(result.campaigns.length, 12);
+  assert.ok(result.campaigns.every((item) => item.value === 3200000 && item.payments.length === 0));
+});
+
+test('salary setting updates current and future unpaid records, preserving history and partial payments', () => {
+  const data = empty();
+  data.campaigns = [
+    campaign({ id: 'past', brand: 'Fundación de la Mujer', month: '2026-10', value: 2000000 }),
+    campaign({ id: 'current', brand: 'Fundación de la Mujer', month: '2026-11', value: 2000000 }),
+    campaign({ id: 'partial', brand: 'Fundación de la Mujer', month: '2026-12', value: 2000000, payments: [{ id: 'p', amount: 1000000, date: '2026-12-01' }] }),
+    campaign({ id: 'brand', month: '2026-11' }),
+  ];
+  const result = configureMonthlySalary(data, 3500000, '2026-11');
+  assert.equal(result.monthlySalary, 3500000);
+  assert.equal(result.campaigns.find((item) => item.id === 'current').value, 3500000);
+  for (const id of ['past', 'partial', 'brand']) assert.deepEqual(result.campaigns.find((item) => item.id === id), data.campaigns.find((item) => item.id === id));
+  assert.equal(result.campaigns.find((item) => item.month === '2027-01').value, 3500000);
+  assert.throws(() => configureMonthlySalary(data, -1, '2026-11'));
+  assert.throws(() => configureMonthlySalary(data, 1.5, '2026-11'));
 });

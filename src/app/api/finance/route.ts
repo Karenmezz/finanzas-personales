@@ -13,6 +13,7 @@ async function isAdmin() {
 function isFinanceData(value: unknown): value is FinanceData {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<FinanceData>;
+  if (candidate.monthlySalary !== undefined && (!Number.isSafeInteger(candidate.monthlySalary) || candidate.monthlySalary <= 0)) return false;
   return Boolean(Array.isArray(candidate.campaigns) && Array.isArray(candidate.bills) && Array.isArray(candidate.expenses) && candidate.monthColors && typeof candidate.monthColors === "object");
 }
 

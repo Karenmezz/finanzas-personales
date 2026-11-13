@@ -32,16 +32,21 @@ export function withMonthlyDefaults(data: FinanceData, years: number[]): Finance
     const generated = Number(a.id.startsWith("recurring-salary-")) - Number(b.id.startsWith("recurring-salary-"));
     return generated || (b.month ?? b.dueDate.slice(0, 7)).localeCompare(a.month ?? a.dueDate.slice(0, 7));
   })[0];
+  const salaryAmount = data.monthlySalary ?? salary?.value;
+  const template: Campaign = salary ?? {
+    id: "salary-template", name: "Salario", brand: "Fundación de la Mujer", network: "Otra",
+    value: salaryAmount ?? 0, dueDate: "2000-01-28", status: "Realizado", payments: [],
+  };
   for (const year of new Set(years)) {
     for (let month = 1; month <= 12; month++) {
       const period = `${year}-${String(month).padStart(2, "0")}`;
       const hasTransport = bills.some((bill) => normalizeName(bill.name) === "transporte" && bill.dueDate.startsWith(period)) ||
         data.expenses.some((expense) => normalizeName(expense.concept) === "transporte" && expense.date.startsWith(period));
       if (!hasTransport) bills.push({ id: `recurring-transport-${period}`, name: "Transporte", category: "Transporte", amount: 420000, dueDate: `${period}-28`, paid: false });
-      if (salary && !salaries.some((item) => (item.month ?? item.dueDate.slice(0, 7)) === period)) {
+      if (salaryAmount && !salaries.some((item) => (item.month ?? item.dueDate.slice(0, 7)) === period)) {
         const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-        const day = Math.min(Number(salary.dueDate.slice(8, 10)) || 28, lastDay);
-        campaigns.push({ ...salary, id: `recurring-salary-${period}`, month: period, dueDate: `${period}-${String(day).padStart(2, "0")}`, contentDueDate: undefined, status: "Pendiente", payments: [] });
+        const day = Math.min(Number(template.dueDate.slice(8, 10)) || 28, lastDay);
+        campaigns.push({ ...template, value: salaryAmount, id: `recurring-salary-${period}`, month: period, dueDate: `${period}-${String(day).padStart(2, "0")}`, contentDueDate: undefined, status: "Pendiente", payments: [] });
       }
     }
   }
@@ -55,4 +60,18 @@ export function previousPendingCampaigns(campaigns: Campaign[], selectedPeriod: 
     period: campaign.month ?? campaign.dueDate.slice(0, 7),
   })).filter((item) => item.period < selectedPeriod && item.pending > 0)
     .sort((a, b) => a.campaign.dueDate.localeCompare(b.campaign.dueDate));
+}
+
+export function configureMonthlySalary(data: FinanceData, amount: number, fromPeriod: string) {
+  if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("Ingresa un salario válido en pesos enteros");
+  const next = {
+    ...data,
+    monthlySalary: amount,
+    campaigns: data.campaigns.map((campaign) =>
+      isFoundationSalary(campaign) && (campaign.month ?? campaign.dueDate.slice(0, 7)) >= fromPeriod && campaign.payments.length === 0
+        ? { ...campaign, value: amount } : campaign),
+  };
+  const years = new Set([Number(fromPeriod.slice(0, 4)), new Date().getFullYear(), new Date().getFullYear() + 1]);
+  data.campaigns.forEach((campaign) => years.add(Number((campaign.month ?? campaign.dueDate).slice(0, 4))));
+  return withMonthlyDefaults(next, [...years].filter(Number.isFinite));
 }

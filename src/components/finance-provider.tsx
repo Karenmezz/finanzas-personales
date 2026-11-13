@@ -2,10 +2,12 @@
 
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { Bill, Campaign, Expense, FinanceData } from "@/lib/finance";
+import { configureMonthlySalary } from "@/lib/finance-insights";
 import { initialData } from "@/lib/finance";
 
 type FinanceContextValue = {
   data: FinanceData;
+  setMonthlySalary: (amount: number, fromPeriod: string) => void;
   addCampaign: (campaign: Campaign) => void;
   updateCampaign: (id: string, changes: Partial<Campaign>) => void;
   deleteCampaign: (id: string) => void;
@@ -124,6 +126,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const value: FinanceContextValue = {
     data,
+    setMonthlySalary: (amount, fromPeriod) => update((current) => configureMonthlySalary(current, amount, fromPeriod)),
     addCampaign: (campaign) =>
       update((current) => ({
         ...current,

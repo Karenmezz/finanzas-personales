@@ -8,6 +8,13 @@
       "when": 1788288406744,
       "tag": "0000_sleepy_scrambler",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794531810681,
+      "tag": "0001_clear_typhoid_mary",
+      "breakpoints": true
     }
   ]
 }
