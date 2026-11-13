@@ -39,6 +39,7 @@ export function CampaignCurrencyFields({ campaign }: { campaign?: Campaign }) {
   const [money, setMoney] = useState(campaign?.currency ?? "COP");
   const [amount, setAmount] = useState(String(campaign?.currency === "USD" ? (campaign.usdValueCents ?? 0) / 100 : campaign?.value ?? ""));
   const inputRef = useRef<HTMLInputElement>(null);
+  const initializedRate = useRef(false);
   const quote = data.exchangeRate && data.exchangeRate.date >= scheduledTrmDate() && data.exchangeRate.date <= bogotaDate() ? data.exchangeRate : undefined;
   const locked = campaign?.currency === "USD" && Boolean(campaign.payments.length);
   const convertingPaid = money === "USD" && campaign?.currency !== "USD" && Boolean(campaign?.payments.length);
@@ -48,11 +49,16 @@ export function CampaignCurrencyFields({ campaign }: { campaign?: Campaign }) {
   useEffect(() => {
     inputRef.current?.setCustomValidity(money === "USD" && !quote && !fixed ? "Espera o actualiza la TRM vigente para guardar en dólares" : "");
   }, [money, quote, fixed]);
+  useEffect(() => {
+    if (money !== "USD" || quote || fixed || initializedRate.current) return;
+    const timer = window.setTimeout(() => { initializedRate.current = true; void refreshExchangeRate(scheduledTrmDate()); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [money, quote, fixed, refreshExchangeRate]);
   let converted: string | null = null;
   try { if (money === "USD" && quote && amount) converted = currency.format(usdCentsToCop(usdToCents(amount), quote.value)); } catch { /* The input validation and submit handler report invalid decimals. */ }
   return <>
     <label><span className="label">Moneda de la campaña</span><select className="field" name={locked ? undefined : "currency"} value={money} disabled={locked} onChange={(event) => { setMoney(event.target.value as "COP" | "USD"); setAmount(""); }}><option value="COP">Pesos colombianos (COP)</option><option value="USD">Dólares (USD)</option></select>{locked && <><input type="hidden" name="currency" value={money} /><span className="mt-1 block text-[10px] text-slate-500">La moneda se conserva porque hay pagos registrados.</span></>}</label>
-    <label><span className="label">{money === "USD" ? "Valor acordado en dólares (USD)" : "Valor acordado en pesos (COP)"}</span><input ref={inputRef} className="field" name="value" aria-label={money === "USD" ? "Valor en dólares" : "Valor en pesos"} type="number" inputMode="decimal" min={minimum} step={money === "USD" ? "0.01" : "1"} value={amount} onChange={(event) => setAmount(event.target.value)} required />{money === "USD" && <span className="mt-1 block text-xs text-slate-500">{fixed ? `Pagos fijados: ${currency.format(campaign!.value)} COP · TRM de cada pago` : converted ? `≈ ${converted} COP · TRM ${trmCurrency.format(quote!.value)} del ${quote!.date}` : "Consultando la TRM vigente…"}</span>}{money === "USD" && !fixed && (!quote || exchangeRateError) && <span className="mt-1 block text-xs text-amber-700">{exchangeRateError ?? "La actualización automática es a las 4:00 a. m. de Colombia."} <button className="underline" type="button" onClick={() => { void refreshExchangeRate(); }}>{exchangeRateError ? "Reintentar TRM" : "Consultar TRM ahora"}</button></span>}</label>
+    <label><span className="label">{money === "USD" ? "Valor acordado en dólares (USD)" : "Valor acordado en pesos (COP)"}</span><input ref={inputRef} className="field" name="value" aria-label={money === "USD" ? "Valor en dólares" : "Valor en pesos"} type="number" inputMode="decimal" min={minimum} step={money === "USD" ? "0.01" : "1"} value={amount} onChange={(event) => setAmount(event.target.value)} required />{money === "USD" && <span className="mt-1 block text-xs text-slate-500">{fixed ? `Pagos fijados: ${currency.format(campaign!.value)} COP · TRM de cada pago` : converted ? `≈ ${converted} COP · TRM ${trmCurrency.format(quote!.value)} del ${quote!.date}` : exchangeRateError ? "La TRM no está disponible por ahora." : "Consultando la TRM vigente…"}</span>}{money === "USD" && !fixed && (!quote || exchangeRateError) && <span className="mt-1 block text-xs text-amber-700">{exchangeRateError ?? "La TRM se consulta automáticamente; la actualización diaria es a las 4:00 a. m. de Colombia."}</span>}</label>
     {convertingPaid && <fieldset className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:col-span-2">
       <legend className="px-1 text-sm font-semibold text-amber-950">Pagos anteriores en dólares</legend>
       <p className="text-xs text-amber-900">Indica el importe original en USD de cada pago. Al guardar, sus valores en pesos se recalculan con la TRM de la fecha de recepción. No se adivinan los dólares a partir de los pesos.</p>

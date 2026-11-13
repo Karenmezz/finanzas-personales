@@ -14,14 +14,13 @@ export function UsdPaymentDialog({ campaign, onClose, onSaved }: { campaign: Cam
   const [date, setDate] = useState(bogotaDate());
   const [quote, setQuote] = useState<ExchangeRate | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [retry, setRetry] = useState(0);
   const [saving, setSaving] = useState(false);
   useEffect(() => { const element = dialog.current; element?.showModal(); return () => element?.close(); }, []);
   useEffect(() => {
     const controller = new AbortController();
     void fetchExchangeRate(date, controller.signal).then((rate) => { if (!controller.signal.aborted) { setQuote(rate); setError(null); } }).catch((failure) => { if (!controller.signal.aborted) { setQuote(null); setError(failure instanceof Error ? failure.message : "No fue posible consultar la TRM"); } });
     return () => controller.abort();
-  }, [date, retry]);
+  }, [date]);
   const ready = quote?.date === date;
   let cents = 0;
   try { cents = usdToCents(amount); } catch { /* Invalid input keeps the submit disabled. */ }
@@ -40,9 +39,9 @@ export function UsdPaymentDialog({ campaign, onClose, onSaved }: { campaign: Cam
     <form className="mt-4 space-y-4" onSubmit={submit}>
       <label className="block"><span className="label">Pago recibido en USD</span><input className="field" name="usdPayment" type="number" inputMode="decimal" step="0.01" min="0.01" max={pendingUsdCents(campaign) / 100} value={amount} onChange={(event) => setAmount(event.target.value)} required /></label>
       <label className="block"><span className="label">Fecha real de recepción</span><input className="field" name="paymentDate" type="date" value={date} max={bogotaDate()} onChange={(event) => setDate(event.target.value)} required /></label>
-      <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3" aria-live="polite">{ready && quote ? <><p className="text-xs text-emerald-800">TRM oficial del {quote.date}: {trmCurrency.format(quote.value)} COP por USD</p><p className="mt-1 text-xl font-bold text-emerald-950">{converted !== null ? currency.format(converted) : "—"}</p><p className="mt-1 text-[11px] text-emerald-800">Este valor quedará fijo. Solo el saldo en dólares pendiente cambiará con la TRM.</p></> : <p className="text-sm text-emerald-800">Consultando la TRM de esa fecha…</p>}</div>
-      {error && <p role="alert" className="text-sm text-rose-700">{error} <button type="button" className="underline" onClick={() => { setQuote(null); setRetry(retry + 1); }}>Reintentar</button></p>}
-      <button className="button w-full disabled:opacity-50" disabled={!ready || converted === null || cents <= 0 || cents > pendingUsdCents(campaign) || saving} type="submit">Guardar pago con TRM de esa fecha</button>
+      <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3" aria-live="polite">{ready && quote ? <><p className="text-xs text-emerald-800">TRM oficial del {quote.date}: {trmCurrency.format(quote.value)} COP por USD</p><p className="mt-1 text-xl font-bold text-emerald-950">{converted !== null ? currency.format(converted) : "—"}</p><p className="mt-1 text-[11px] text-emerald-800">Este valor quedará fijo. Solo el saldo en dólares pendiente cambiará con la TRM.</p></> : <p className="text-sm text-emerald-800">{error ? "La TRM no está disponible para esa fecha." : "Consultando la TRM de esa fecha…"}</p>}</div>
+      {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
+      <button className="button w-full disabled:opacity-50" disabled={!ready || converted === null || cents <= 0 || cents > pendingUsdCents(campaign) || saving} type="submit">Guardar pago</button>
     </form>
   </dialog>;
 }

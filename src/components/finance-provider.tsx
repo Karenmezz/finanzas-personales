@@ -14,7 +14,7 @@ type FinanceContextValue = {
   deleteCampaign: (id: string) => void;
   addPayment: (campaignId: string, amount: number) => void;
   addUsdPayment: (campaignId: string, cents: number, date: string, quote: ExchangeRate) => void;
-  refreshExchangeRate: () => Promise<void>;
+  refreshExchangeRate: (date?: string) => Promise<void>;
   exchangeRateError: string | null;
   removeLastPayment: (campaignId: string) => void;
   addExpense: (expense: Expense) => void;
@@ -108,9 +108,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initialData);
   const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
-  const refreshExchangeRate = useCallback(async () => {
+  const refreshExchangeRate = useCallback(async (date = bogotaDate()) => {
     try {
-      const quote = await fetchExchangeRate();
+      const quote = await fetchExchangeRate(date);
       saveData(revalueFinanceData(getSnapshot(), quote), false, quote);
       setExchangeRateError(null);
     } catch (error) {

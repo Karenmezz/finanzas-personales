@@ -12,6 +12,6 @@ export async function GET(request: Request) {
     return Response.json(await getExchangeRate(date));
   } catch (error) {
     console.error("No fue posible consultar la TRM", error);
-    return Response.json({ error: "No fue posible consultar la TRM oficial. Intenta de nuevo; no se registró ningún pago." }, { status: 503 });
+    return Response.json({ error: "La TRM oficial no está disponible por ahora; no se registró ningún pago." }, { status: 503 });
   }
 }
