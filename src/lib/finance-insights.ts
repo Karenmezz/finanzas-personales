@@ -64,3 +64,16 @@ export function previousPendingCampaigns(campaigns: Campaign[], selectedPeriod: 
   })).filter((item) => item.period < selectedPeriod && item.pending > 0)
     .sort((a, b) => a.campaign.dueDate.localeCompare(b.campaign.dueDate));
 }
+
+export type FinanceArea = "finances" | "content";
+
+export function selectFinanceArea(data: FinanceData, area: FinanceArea): FinanceData {
+  const content = area === "content";
+  const workCategories = new Set(["trabajo", "produccion", "contenido", "publicidad"]);
+  return {
+    ...data,
+    campaigns: data.campaigns.filter((campaign) => isFoundationSalary(campaign) !== content),
+    bills: content ? [] : data.bills,
+    expenses: data.expenses.filter((expense) => workCategories.has(normalizeName(expense.category)) === content),
+  };
+}

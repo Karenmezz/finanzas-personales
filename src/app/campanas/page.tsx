@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { isFoundationSalary } from "@/lib/finance-insights";
 import { useFinance } from "@/components/finance-provider";
 import { createId, currency } from "@/lib/finance";
 
 export default function CampaignsPage() {
   const { data, addCampaign, addPayment, deleteCampaign } = useFinance();
   const [showPaid, setShowPaid] = useState(false);
-  const visibleCampaigns = data.campaigns.filter((campaign) => showPaid || campaign.payments.reduce((sum, payment) => sum + payment.amount, 0) < campaign.value);
+  const visibleCampaigns = data.campaigns.filter((campaign) => !isFoundationSalary(campaign) && (showPaid || campaign.payments.reduce((sum, payment) => sum + payment.amount, 0) < campaign.value));
   const [open, setOpen] = useState(false);
 
   function submit(event: FormEvent<HTMLFormElement>) {

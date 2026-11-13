@@ -1,5 +1,7 @@
 "use client";
 
+import { AreaFilter } from "@/components/area-filter";
+import { selectFinanceArea, type FinanceArea } from "@/lib/finance-insights";
 import { useState } from "react";
 import { SummaryCard } from "@/components/summary-card";
 import { useFinance } from "@/components/finance-provider";
@@ -9,9 +11,11 @@ import { BrandRanking } from "@/components/brand-ranking";
 import { CollapsibleSection } from "@/components/collapsible-section";
 
 export default function Home() {
-  const { data } = useFinance();
+  const { data: allData } = useFinance();
+  const [area, setArea] = useState<FinanceArea>("finances");
+  const data = selectFinanceArea(allData, area);
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-  const years = availableYears(data);
+  const years = availableYears(allData);
   const campaigns = data.campaigns.filter((item) => item.month?.startsWith(`${selectedYear}-`));
   const bills = data.bills.filter((item) => item.dueDate.startsWith(`${selectedYear}-`));
   const extraExpenses = data.expenses.filter((item) => item.date.startsWith(`${selectedYear}-`));
@@ -33,31 +37,32 @@ export default function Home() {
         <p className="mt-2 text-slate-600">Tus cifras se actualizan con cada registro.</p></div>
         <label><span className="sr-only">Año</span><select className="h-10 min-w-[148px] rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold" value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
       </header>
+      <AreaFilter value={area} onChange={setArea} />
       <CollapsibleSection title="Indicadores generales">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores financieros">
-        <SummaryCard titulo="Generado" valor={currency.format(generated)} detalle="Valor de todas las campañas" />
+        <SummaryCard titulo={area === "content" ? "Generado en campañas" : "Salario"} valor={currency.format(generated)} detalle={area === "content" ? "Valor de las campañas" : "Salario de Fundación de la Mujer"} />
         <SummaryCard titulo="Recibido" valor={currency.format(received)} detalle="Pagos registrados" />
-        <SummaryCard titulo="Por cobrar" valor={currency.format(generated - received)} detalle="Saldo de campañas" />
+        <SummaryCard titulo="Por cobrar" valor={currency.format(generated - received)} detalle={area === "content" ? "Saldo de campañas" : "Salario pendiente de recibir"} />
         <SummaryCard titulo="Balance" valor={currency.format(received - expenses)} detalle="Recibido menos gastos" />
       </section>
       </CollapsibleSection>
-    <BrandRanking campaigns={campaigns} period={String(selectedYear)} />
+    {area === "content" && <BrandRanking campaigns={campaigns} period={String(selectedYear)} />}
       <CollapsibleSection title="Gráficas y evolución">
-      <FinanceCharts data={data} year={selectedYear} />
+      <FinanceCharts data={data} year={selectedYear} area={area} />
       </CollapsibleSection>
       <CollapsibleSection title="Actividad y ayuda">
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
         <article className="card">
           <h2 className="text-lg font-semibold">Actividad</h2>
           <dl className="mt-4 space-y-3 text-sm">
-            <div className="flex justify-between"><dt>Campañas</dt><dd className="font-semibold">{campaigns.length}</dd></div>
+            <div className="flex justify-between"><dt>{area === "content" ? "Campañas" : "Meses con salario"}</dt><dd className="font-semibold">{campaigns.length}</dd></div>
             <div className="flex justify-between"><dt>Gastos acumulados</dt><dd className="font-semibold">{currency.format(expenses)}</dd></div>
             <div className="flex justify-between"><dt>Cuentas pendientes</dt><dd className="font-semibold text-slate-700">{currency.format(pendingBills)}</dd></div>
           </dl>
         </article>
         <article className="card">
-          <h2 className="text-lg font-semibold">Cómo usar este MVP</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">Registra campañas y sus pagos, agrega gastos, controla cuentas y revisa el historial consolidado en Movimientos.</p>
+          <h2 className="text-lg font-semibold">Organiza cada sección</h2>
+          <p className="mt-3 text-sm leading-6 text-slate-600">En Contenidos administra campañas, marcas, publicaciones y gastos de trabajo. En Finanzas administra el salario y las cuentas de la casa. El resumen y los movimientos se filtran por la sección seleccionada.</p>
         </article>
       </section>
       </CollapsibleSection>

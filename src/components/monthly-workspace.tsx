@@ -1,0 +1,253 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+import { useFinance } from "@/components/finance-provider";
+import { availableYears, createId, currency } from "@/lib/finance";
+import { selectFinanceArea, type FinanceArea, previousPendingCampaigns } from "@/lib/finance-insights";
+import { BrandRanking } from "@/components/brand-ranking";
+import { CollapsibleSection } from "@/components/collapsible-section";
+
+const months = [
+  ["01", "Enero"], ["02", "Febrero"],
+  ["03", "Marzo"], ["04", "Abril"], ["05", "Mayo"], ["06", "Junio"],
+  ["07", "Julio"], ["08", "Agosto"], ["09", "Septiembre"],
+  ["10", "Octubre"], ["11", "Noviembre"], ["12", "Diciembre"],
+];
+const serviceOrder = ["Arriendo", "Luz", "Gas", "Agua", "Wifi", "Datos"];
+const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+export function MonthlyWorkspace({ area }: { area: FinanceArea }) {
+  const isContent = area === "content";
+  const { data: allData, addBill, addCampaign, addExpense, addPayment, deleteBill, deleteCampaign, deleteExpense, removeLastPayment, toggleBill, updateBill, updateCampaign, updateExpense, updateMonthColor } = useFinance();
+  const data = selectFinanceArea(allData, area);
+  const [selectedMonth, setSelectedMonth] = useState(() => String(new Date().getMonth() + 1).padStart(2, "0"));
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [editingCampaign, setEditingCampaign] = useState<string | null>(null);
+  const [editingBill, setEditingBill] = useState<string | null>(null);
+  const [creatingCampaign, setCreatingCampaign] = useState(false);
+  const [creatingBill, setCreatingBill] = useState(false);
+  const [creatingExpense, setCreatingExpense] = useState(false);
+  const [customizingColor, setCustomizingColor] = useState(false);
+  const [hidePaidCampaigns, setHidePaidCampaigns] = useState(true);
+  const [hidePaidBills, setHidePaidBills] = useState(true);
+  const [showPaidExpenses, setShowPaidExpenses] = useState(false);
+  const [lastRegisteredPayment, setLastRegisteredPayment] = useState<{ campaignId: string; campaignName: string; amount: number } | null>(null);
+  const monthName = months.find(([value]) => value === selectedMonth)?.[1];
+  const years = availableYears(allData);
+  const selectedPeriod = `${selectedYear}-${selectedMonth}`;
+  const campaigns = data.campaigns
+    .filter((item) => item.month === selectedPeriod)
+    .sort((a, b) => {
+      const pendingA = a.value - a.payments.reduce((sum, payment) => sum + payment.amount, 0);
+      const pendingB = b.value - b.payments.reduce((sum, payment) => sum + payment.amount, 0);
+      if ((pendingA > 0) !== (pendingB > 0)) return pendingA > 0 ? -1 : 1;
+      return b.value - a.value;
+    });
+  const bills = data.bills
+    .filter((item) => item.dueDate.startsWith(selectedPeriod))
+    .sort((a, b) => serviceOrder.indexOf(a.name.trim()) - serviceOrder.indexOf(b.name.trim()));
+  const expenses = data.expenses.filter((item) => item.date.startsWith(selectedPeriod));
+  const generated = campaigns.reduce((sum, item) => sum + item.value, 0);
+  const received = campaigns.reduce((sum, item) => sum + item.payments.reduce((total, payment) => total + payment.amount, 0), 0);
+  const allCampaignsPaid = campaigns.length > 0 && campaigns.every((campaign) => campaign.payments.reduce((sum, payment) => sum + payment.amount, 0) >= campaign.value);
+  const visibleCampaigns = hidePaidCampaigns ? campaigns.filter((campaign) => campaign.payments.reduce((sum, payment) => sum + payment.amount, 0) < campaign.value) : campaigns;
+  const otherPendingCampaigns = previousPendingCampaigns(data.campaigns, selectedPeriod);
+  const otherPendingTotal = otherPendingCampaigns.reduce((sum, item) => sum + item.pending, 0);
+  const billTotal = bills.reduce((sum, item) => sum + item.amount, 0);
+  const pendingBills = bills.filter((bill) => !bill.paid);
+  const paidBillTotal = bills.filter((bill) => bill.paid).reduce((sum, bill) => sum + bill.amount, 0);
+  const pendingBillTotal = pendingBills.reduce((sum, bill) => sum + bill.amount, 0);
+  const paidBillCount = bills.length - pendingBills.length;
+  const visibleBills = hidePaidBills ? pendingBills : bills;
+  const expenseTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
+  const pendingExtraTotal = expenses.filter((item) => item.status === "Pendiente").reduce((sum, item) => sum + item.amount, 0);
+  const calendarCampaigns = campaigns
+    .filter((campaign) => campaign.contentDueDate)
+    .sort((a, b) => (a.contentDueDate ?? "").localeCompare(b.contentDueDate ?? ""));
+  const monthNumber = Number(selectedMonth);
+  const daysInMonth = new Date(selectedYear, monthNumber, 0).getDate();
+  const leadingEmptyDays = (new Date(selectedYear, monthNumber - 1, 1).getDay() + 6) % 7;
+  const calendarDays = [
+    ...Array.from({ length: leadingEmptyDays }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+  ];
+  while (calendarDays.length % 7 !== 0) calendarDays.push(null);
+
+  function registerPayment(id: string, maximum: number) {
+    const campaign = data.campaigns.find((item) => item.id === id);
+    addPayment(id, maximum);
+    if (campaign) setLastRegisteredPayment({ campaignId: id, campaignName: campaign.name, amount: maximum });
+  }
+
+  function undoPayment(campaignId: string) {
+    removeLastPayment(campaignId);
+    setLastRegisteredPayment((payment) => payment?.campaignId === campaignId ? null : payment);
+  }
+
+  function saveCampaign(event: FormEvent<HTMLFormElement>, id: string) {
+    event.preventDefault(); const form = new FormData(event.currentTarget);
+    const targetMonth = String(form.get("month")).slice(-2);
+    updateCampaign(id, { name: String(form.get("name")), brand: String(form.get("brand")), network: String(form.get("network")), value: Number(form.get("value")), month: `${String(form.get("moveYear"))}-${targetMonth}`, dueDate: String(form.get("dueDate")), contentDueDate: String(form.get("contentDueDate") || ""), status: String(form.get("status")) as "Pendiente" | "En producción" | "Realizado" });
+    setEditingCampaign(null);
+  }
+
+  function createCampaign(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); const form = new FormData(event.currentTarget);
+    addCampaign({ id: createId(), name: String(form.get("name")), brand: String(form.get("brand")), network: String(form.get("network")), collaborationType: String(form.get("collaborationType")), value: Number(form.get("value")), month: selectedPeriod, dueDate: String(form.get("dueDate")), contentDueDate: String(form.get("contentDueDate") || ""), status: String(form.get("status")) as "Pendiente" | "En producción" | "Realizado", payments: [] });
+    event.currentTarget.reset(); setCreatingCampaign(false);
+  }
+
+  function createBill(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); const form = new FormData(event.currentTarget);
+    addBill({ id: createId(), name: String(form.get("name")), category: String(form.get("category")), amount: Number(form.get("amount")), dueDate: `${selectedPeriod}-28`, paid: false });
+    event.currentTarget.reset(); setCreatingBill(false);
+  }
+
+  function createExpense(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); const form = new FormData(event.currentTarget);
+    addExpense({ id: createId(), concept: String(form.get("concept")), category: String(form.get("category")), amount: Number(form.get("amount")), date: `${selectedPeriod}-28`, status: String(form.get("status")) as "Pendiente" | "Comprado" });
+    event.currentTarget.reset(); setCreatingExpense(false);
+  }
+
+  function saveBill(event: FormEvent<HTMLFormElement>, id: string) {
+    event.preventDefault(); const form = new FormData(event.currentTarget);
+    updateBill(id, { name: String(form.get("name")), category: String(form.get("category")), amount: Number(form.get("amount")) });
+    setEditingBill(null);
+  }
+
+  function duplicateCampaign(campaign: (typeof campaigns)[number]) {
+    addCampaign({ ...campaign, id: createId(), name: `${campaign.name} (copia)`, status: "Pendiente", payments: [] });
+  }
+
+  function duplicateBill(bill: (typeof bills)[number]) {
+    addBill({ ...bill, id: createId(), name: `${bill.name} (copia)`, paid: false });
+  }
+
+  return <div className="mx-auto max-w-7xl">
+    <header className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-wider text-slate-500">Organización mensual</p><h1 className="mt-2 text-3xl font-bold">{isContent ? "Contenidos" : "Finanzas"}</h1><p className="mt-2 text-slate-600">{isContent ? "Organiza tus campañas, cobros, marcas y fechas de publicación." : "Tu salario, las cuentas de la casa, transporte y gastos personales."}</p></div><div className="flex flex-wrap items-center gap-2"><label><span className="sr-only">Año</span><select className="h-10 min-w-[128px] rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold" value={selectedYear} onChange={(event) => { setSelectedYear(Number(event.target.value)); setHidePaidCampaigns(true); setHidePaidBills(true); setShowPaidExpenses(false); }}>{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>{isContent && <button className="button h-10" onClick={() => { setCreatingCampaign(!creatingCampaign); setCreatingBill(false); setCreatingExpense(false); }}>+ Nueva campaña</button>}{!isContent && <button className="button-secondary h-10" onClick={() => { setCreatingBill(!creatingBill); setCreatingCampaign(false); setCreatingExpense(false); }}>+ Nuevo servicio</button>}<button className="button-secondary h-10" onClick={() => { setCreatingExpense(!creatingExpense); setCreatingCampaign(false); setCreatingBill(false); }}>+ Nuevo gasto</button></div></header>
+    <div className="mb-5 sm:hidden"><label className="block w-44"><span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Mes</span><select id="finance-month" className="w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-semibold" style={{ borderColor: data.monthColors[selectedMonth], backgroundColor: `${data.monthColors[selectedMonth]}33` }} value={selectedMonth} onChange={(event) => { setSelectedMonth(event.target.value); setHidePaidCampaigns(true); setHidePaidBills(true); setShowPaidExpenses(false); setCustomizingColor(false); }}>{months.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
+    <nav className="mb-5 hidden gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-1.5 sm:flex" aria-label="Seleccionar mes">{months.map(([value, label]) => <button key={value} onClick={() => { setSelectedMonth(value); setHidePaidCampaigns(true); setHidePaidBills(true); setShowPaidExpenses(false); setCustomizingColor(false); }} className="min-w-[72px] flex-1 rounded-xl border px-2 py-2 text-xs font-semibold transition" style={{ borderColor: selectedMonth === value ? data.monthColors[value] : "transparent", backgroundColor: selectedMonth === value ? `${data.monthColors[value]}55` : "transparent" }}>{label}</button>)}</nav>
+
+    {creatingCampaign && <form onSubmit={createCampaign} className="card mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><label><span className="label">Campaña</span><input className="field" name="name" required /></label><label><span className="label">Marca</span><input className="field" name="brand" required /></label><label><span className="label">Red social</span><select className="field" name="network"><option>TikTok</option><option>Instagram</option><option>TikTok y Instagram</option><option>Uso de la marca</option><option>Otra</option></select></label><label><span className="label">Tipo</span><select className="field" name="collaborationType"><option>Paga</option><option>Paga y canje</option><option>Canje</option></select></label><label><span className="label">Valor</span><input className="field" name="value" type="number" min="0" required /></label><label><span className="label">¿Cuándo te pagan?</span><input className="field" name="dueDate" type="date" defaultValue={`${selectedPeriod}-28`} required /></label><label><span className="label">Estado del contenido</span><select className="field" name="status"><option>Pendiente</option><option>En producción</option><option>Realizado</option></select></label><label><span className="label">Límite para subir el video</span><input className="field" name="contentDueDate" type="date" /></label><div className="flex gap-2 sm:col-span-2"><button className="button" type="submit">Guardar en {monthName}</button><button className="button-secondary" type="button" onClick={() => setCreatingCampaign(false)}>Cancelar</button></div></form>}
+    {creatingBill && <form onSubmit={createBill} className="card mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><label><span className="label">Servicio</span><input className="field" name="name" required /></label><label><span className="label">Categoría</span><input className="field" name="category" placeholder="Hogar, comunicación..." required /></label><label><span className="label">Valor</span><input className="field" name="amount" type="number" min="0" required /></label><div className="flex gap-2 sm:col-span-2"><button className="button" type="submit">Guardar en {monthName}</button><button className="button-secondary" type="button" onClick={() => setCreatingBill(false)}>Cancelar</button></div></form>}
+    {creatingExpense && <form onSubmit={createExpense} className="card mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><label><span className="label">Concepto</span><input className="field" name="concept" required /></label><label><span className="label">Categoría</span><select className="field" name="category">{(isContent ? ["Trabajo", "Producción", "Contenido", "Publicidad"] : ["Hogar", "Vivienda", "Servicios", "Transporte", "Alimentación", "Salud", "Otro"]).map((category) => <option key={category}>{category}</option>)}</select></label><label><span className="label">Valor</span><input className="field" name="amount" type="number" min="1" required /></label><label><span className="label">Estado</span><select className="field" name="status"><option>Pendiente</option><option>Comprado</option></select></label><div className="flex gap-2 sm:col-span-2"><button className="button" type="submit">Guardar en {monthName}</button><button className="button-secondary" type="button" onClick={() => setCreatingExpense(false)}>Cancelar</button></div></form>}
+
+    <CollapsibleSection title="Resumen del mes">
+    <section className="mb-6 rounded-3xl border p-6" style={{ borderColor: data.monthColors[selectedMonth], backgroundColor: `${data.monthColors[selectedMonth]}33` }}><div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold">{monthName} {selectedYear}</p><div className="flex items-center gap-2">{customizingColor && <><label htmlFor="month-color" className="sr-only">Color de {monthName}</label><input id="month-color" type="color" value={data.monthColors[selectedMonth]} onChange={(event) => updateMonthColor(selectedMonth, event.target.value)} className="h-8 w-10 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" /></>}<button className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50" onClick={() => setCustomizingColor(!customizingColor)}>{customizingColor ? "Listo" : "Personalizar"}</button></div></div><div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><MonthlyTotal label={isContent ? "Generado en campañas" : "Salario del mes"} value={generated} /><MonthlyTotal label="Recibido" value={received} /><MonthlyTotal label={isContent ? "Por cobrar" : "Balance disponible"} value={isContent ? generated - received : received - paidBillTotal - expenses.filter((item) => item.status === "Comprado").reduce((sum, item) => sum + item.amount, 0)} warning /><MonthlyTotal label="Por pagar" value={pendingBillTotal + pendingExtraTotal} warning /></div></section>
+    </CollapsibleSection>
+
+    {isContent && <BrandRanking campaigns={campaigns} period={`${monthName} ${selectedYear}`} />}
+    <div className={isContent ? "space-y-6" : "grid gap-6 lg:grid-cols-2"}>
+      {isContent ? <CollapsibleSection title="Dinero por cobrar">
+      <section className="card min-w-0"><div><h2 className="text-lg font-bold">Dinero por cobrar</h2><p className="text-sm text-slate-500">{campaigns.length} campañas en {monthName}</p></div>{campaigns.length > visibleCampaigns.length || !hidePaidCampaigns ? <button type="button" className="button-secondary" aria-pressed={hidePaidCampaigns} onClick={() => setHidePaidCampaigns(!hidePaidCampaigns)}>{hidePaidCampaigns ? "Mostrar campañas pagadas" : "Ocultar campañas pagadas"}</button> : null}<MoneyStatusSummary items={[{ label: "Total ganado", value: generated, tone: "neutral" }, { label: "Ya recibiste", value: received, tone: "positive" }, { label: "Falta recibir", value: generated - received, tone: "warning" }]} />{lastRegisteredPayment && <div role="status" className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><div><p className="font-bold text-emerald-950">Pago registrado</p><p className="mt-1 text-sm text-emerald-800">{lastRegisteredPayment.campaignName} · {currency.format(lastRegisteredPayment.amount)}</p></div><button type="button" className="button-secondary" onClick={() => undoPayment(lastRegisteredPayment.campaignId)}>Deshacer pago</button></div>}{otherPendingCampaigns.length > 0 && <aside className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4" aria-label="Cobros pendientes de meses anteriores"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold text-amber-950">Tienes cobros pendientes de meses anteriores</h3><p className="mt-1 text-sm text-amber-800">Puedes cambiar la fecha o registrar el pago sin cambiar de mes.</p></div><div className="text-right"><p className="text-lg font-bold text-amber-950">{currency.format(otherPendingTotal)}</p><p className="text-xs font-semibold text-amber-800">{otherPendingCampaigns.length} {otherPendingCampaigns.length === 1 ? "campaña pendiente" : "campañas pendientes"}</p></div></div><div className="mt-4 space-y-2">{otherPendingCampaigns.map(({ campaign, pending, period }) => <article key={campaign.id} className="rounded-xl border border-amber-200 bg-white p-3"><div className="flex flex-wrap items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{campaign.name}</p><p className="mt-0.5 text-xs text-slate-500">{campaign.brand} · {formatCampaignPeriod(period)}</p></div><div className="text-right"><p className="text-sm font-bold text-amber-900">{currency.format(pending)}</p><p className="text-xs text-slate-500">falta recibir</p></div></div><div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><label><span className="mb-1 block text-xs font-semibold text-slate-600">Fecha esperada de pago</span><input className="field" type="date" value={campaign.dueDate} onChange={(event) => { if (event.target.value) updateCampaign(campaign.id, { dueDate: event.target.value }); }} /></label><PaymentDueReminder dueDate={campaign.dueDate} /></div><button type="button" className="button mt-3 w-full" onClick={() => registerPayment(campaign.id, pending)}>Registrar pago recibido</button></article>)}</div></aside>}{allCampaignsPaid && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-green-900"><div role="status" className="flex items-center gap-3"><span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-600 font-bold text-white">✓</span><div><p className="font-bold">¡Estás al día!</p><p className="text-sm text-green-700">Recibiste todos los pagos de {monthName}.</p></div></div></div>}<div className="mt-5 space-y-3">{visibleCampaigns.map((campaign) => { const paid = campaign.payments.reduce((sum, item) => sum + item.amount, 0); const pending = campaign.value - paid; const paymentLabel = pending === 0 ? "Pagada" : campaign.status === "Realizado" ? "Esperando pago" : "Contenido pendiente"; return <article key={campaign.id} className="rounded-2xl border border-slate-100 bg-white p-4">{editingCampaign === campaign.id ? <form onSubmit={(event) => saveCampaign(event, campaign.id)} className="grid gap-3 sm:grid-cols-2"><input className="field" name="name" defaultValue={campaign.name} aria-label="Campaña" required /><input className="field" name="brand" defaultValue={campaign.brand} aria-label="Marca" required /><input className="field" name="network" defaultValue={campaign.network} aria-label="Red social" required /><input className="field" name="value" type="number" min={paid} defaultValue={campaign.value} aria-label="Valor" required /><label><span className="label">Fecha esperada de pago</span><input className="field" name="dueDate" type="date" defaultValue={campaign.dueDate} required /></label><label><span className="label">Estado del contenido</span><select className="field" name="status" defaultValue={campaign.status}><option>Pendiente</option><option>En producción</option><option>Realizado</option></select></label><label><span className="label">Límite para subir el video</span><input className="field" name="contentDueDate" type="date" defaultValue={campaign.contentDueDate ?? ""} /></label><label><span className="label">Mover al año</span><select className="field" name="moveYear" defaultValue={Number(campaign.month?.slice(0, 4) || selectedYear)}>{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label><label><span className="label">Mover al mes</span><select className="field" name="month" defaultValue={campaign.month}>{months.map(([value, label]) => <option key={value} value={`${selectedYear}-${value}`}>{label}</option>)}</select></label><div className="flex items-end gap-2 sm:col-span-2"><button className="button" type="submit">Guardar</button><button className="button-secondary" type="button" onClick={() => setEditingCampaign(null)}>Cancelar</button></div></form> : <><div className="flex justify-between gap-3"><div><h3 className="font-semibold">{campaign.name}</h3><p className="mt-1 text-xs text-slate-500">{campaign.brand} · {campaign.network}</p><span className={`mt-2 inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${campaign.status === "Realizado" ? "bg-green-100 text-green-800" : campaign.status === "En producción" ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}`}>Contenido: {campaign.status}</span>{campaign.contentDueDate && <p className="mt-2 text-xs font-medium text-slate-600">📅 Límite: {formatContentDate(campaign.contentDueDate)}</p>}{pending > 0 && <div className="mt-2"><PaymentDueReminder dueDate={campaign.dueDate} /></div>}</div><div className="text-right"><p className="font-semibold">{currency.format(campaign.value)}</p><p className={`text-xs ${pending > 0 ? "text-slate-700" : "text-slate-600"}`}>{pending > 0 ? `${currency.format(pending)} por cobrar` : "Pagada"}</p><p className={`mt-1 inline-block rounded-full px-2 py-1 text-xs font-semibold ${paymentLabel === "Pagada" ? "bg-green-100 text-green-800" : paymentLabel === "Esperando pago" ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}`}>{paymentLabel}</p></div></div><div className="mt-3 flex flex-wrap gap-2"><button className="button-secondary" onClick={() => setEditingCampaign(campaign.id)}>Editar o mover</button><button className="button-secondary" onClick={() => duplicateCampaign(campaign)}>Duplicar</button>{pending > 0 && <button className="button" onClick={() => registerPayment(campaign.id, pending)}>Registrar pago</button>}{campaign.payments.length > 0 && <button className="button-secondary" onClick={() => undoPayment(campaign.id)}>Deshacer último pago</button>}<button className="button-danger" onClick={() => deleteCampaign(campaign.id)}>Eliminar</button></div></>}</article>; })}{campaigns.length === 0 && <p className="py-6 text-center text-slate-500">No hay campañas este mes.</p>}</div></section>
+      </CollapsibleSection> : <section className="card" aria-label="Salario de Fundación de la Mujer">
+        <h2 className="text-lg font-bold">Salario de Fundación de la Mujer</h2>
+        <p className="mt-1 text-sm text-slate-500">Salario fijo mensual: {currency.format(3100000)}.</p>
+        <MoneyStatusSummary items={[{ label: "Salario del mes", value: generated, tone: "neutral" }, { label: "Recibido", value: received, tone: "positive" }, { label: "Por recibir", value: Math.max(generated - received, 0), tone: "warning" }]} />
+        {campaigns.length > visibleCampaigns.length || !hidePaidCampaigns ? <button type="button" className="button-secondary mt-4" onClick={() => setHidePaidCampaigns(!hidePaidCampaigns)}>{hidePaidCampaigns ? "Mostrar salarios pagados" : "Ocultar salarios pagados"}</button> : null}
+        {visibleCampaigns.map((salary) => { const paid = salary.payments.reduce((sum, payment) => sum + payment.amount, 0); const pending = Math.max(salary.value - paid, 0); return <article key={salary.id} className="mt-4 rounded-2xl border border-slate-200 p-4">
+          <div className="flex flex-wrap justify-between gap-3"><div><h3 className="font-semibold">Salario · {monthName}</h3><p className="mt-1 text-sm text-slate-500">Fecha esperada: {salary.dueDate}</p></div><p className="font-bold">{currency.format(salary.value)}</p></div>
+          <div className="mt-3 flex flex-wrap gap-2">{pending > 0 && <button className="button" onClick={() => registerPayment(salary.id, pending)}>Registrar salario recibido</button>}{salary.payments.length > 0 && <button className="button-secondary" onClick={() => undoPayment(salary.id)}>Deshacer último pago</button>}</div>
+        </article>; })}
+        {campaigns.length === 0 && <p className="mt-4 text-sm text-slate-500">El salario aparecerá al sincronizar los datos.</p>}
+      </section>}
+
+
+      {!isContent && <CollapsibleSection title="Dinero por pagar">
+      <section className="card min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-lg font-bold">Dinero por pagar</h2><p className="text-sm text-slate-500">Servicios de {monthName}</p></div>
+          {paidBillCount > 0 && pendingBills.length > 0 && <button type="button" className="button-secondary" aria-pressed={hidePaidBills} onClick={() => setHidePaidBills(!hidePaidBills)}>{hidePaidBills ? `Mostrar pagados (${paidBillCount})` : `Ocultar pagados (${paidBillCount})`}</button>}
+        </div>
+        <MoneyStatusSummary items={[{ label: "Total de obligaciones", value: billTotal, tone: "neutral" }, { label: "Ya pagaste", value: paidBillTotal, tone: "positive" }, { label: "Falta pagar", value: pendingBillTotal, tone: "warning" }]} />
+        {bills.length > 0 && pendingBills.length === 0 && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-green-900"><div role="status" className="flex items-center gap-3"><span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-600 font-bold text-white">✓</span><div><p className="font-bold">¡Estás al día!</p><p className="text-sm text-green-700">Pagaste todos los servicios de {monthName}.</p></div></div><button type="button" className="button-secondary" aria-pressed={hidePaidBills} onClick={() => setHidePaidBills(!hidePaidBills)}>{hidePaidBills ? "Mostrar servicios pagados" : "Ocultar servicios pagados"}</button></div>}
+        <div className="mt-5 space-y-3">{visibleBills.map((bill) => <article key={bill.id} className="rounded-2xl border border-slate-100 bg-white p-4">{editingBill === bill.id ? <form onSubmit={(event) => saveBill(event, bill.id)} className="grid gap-3 sm:grid-cols-2"><input className="field" name="name" defaultValue={bill.name} aria-label="Cuenta" required /><input className="field" name="category" defaultValue={bill.category} aria-label="Categoría" required /><input className="field" name="amount" type="number" min="0" defaultValue={bill.amount} aria-label="Valor" required /><div className="flex gap-2"><button className="button" type="submit">Guardar</button><button className="button-secondary" type="button" onClick={() => setEditingBill(null)}>Cancelar</button></div></form> : <><div className="flex items-center justify-between"><div><h3 className="font-semibold">{bill.name}</h3><p className={`mt-1 inline-block rounded-full px-2 py-1 text-xs font-semibold ${bill.paid ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{bill.paid ? "Pagada" : "Pendiente"}</p></div><p className="font-semibold">{bill.amount ? currency.format(bill.amount) : "Sin valor"}</p></div><div className="mt-3 flex flex-wrap gap-2"><button className="button-secondary" onClick={() => setEditingBill(bill.id)}>Editar</button><button className="button-secondary" onClick={() => duplicateBill(bill)}>Duplicar</button><button className={bill.paid ? "button-secondary" : "button"} onClick={() => toggleBill(bill.id)}>{bill.paid ? "Marcar pendiente" : "Marcar pagada"}</button><button className="button-danger" onClick={() => deleteBill(bill.id)}>Eliminar</button></div></>}</article>)}</div>
+      </section>
+      </CollapsibleSection>}
+    </div>
+
+    <div className={isContent ? "mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]" : "mt-6"}>
+      {isContent && <CollapsibleSection title="Calendario de contenido">
+        <section className="card min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Calendario de contenido</h2><p className="text-sm text-slate-500">Fechas límite de {monthName}</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{calendarCampaigns.length} con fecha</span></div>
+          <div className="mt-4 overflow-x-auto pb-1"><div className="min-w-[560px] overflow-hidden rounded-xl border border-slate-200 bg-slate-200"><div className="grid grid-cols-7 gap-px">
+            {weekDays.map((day) => <div key={day} className="bg-slate-50 px-1 py-1.5 text-center text-[10px] font-bold uppercase text-slate-500">{day}</div>)}
+            {calendarDays.map((day, index) => { const date = day ? `${selectedYear}-${selectedMonth}-${String(day).padStart(2, "0")}` : ""; const dayCampaigns = calendarCampaigns.filter((campaign) => campaign.contentDueDate === date); return <div key={`${day ?? "empty"}-${index}`} className={`min-h-20 bg-white p-1.5 ${day ? "" : "bg-slate-50"}`}>{day && <><p className="mb-1 text-xs font-bold text-slate-700">{day}</p><div className="space-y-1">{dayCampaigns.map((campaign) => <button key={campaign.id} type="button" onClick={() => setEditingCampaign(campaign.id)} className={`block w-full truncate rounded-md px-1.5 py-1 text-left text-[9px] font-semibold leading-tight ${campaign.status === "Realizado" ? "bg-green-100 text-green-900" : campaign.status === "En producción" ? "bg-yellow-100 text-yellow-900" : "bg-red-100 text-red-900"}`} title={`${campaign.name} · ${campaign.status}`}>{campaign.name}</button>)}</div></>}</div>; })}
+          </div></div></div>
+          {calendarCampaigns.length === 0 && <p className="mt-3 text-sm text-slate-500">Todavía no has definido fechas límite para este mes.</p>}
+        </section>
+      </CollapsibleSection>}
+      <CollapsibleSection title="Gastos extras">
+    <section className="card">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Gastos extras</h2><p className="text-sm text-slate-500">Gastos adicionales de {monthName}</p></div><span className="font-semibold">{currency.format(expenseTotal)}</span></div>
+      <button type="button" className="button-secondary mt-4" onClick={() => setShowPaidExpenses(!showPaidExpenses)}>{showPaidExpenses ? "Ocultar pagados" : "Mostrar pagados"}</button>
+      <div className="mt-5 space-y-3">{expenses.filter((expense) => showPaidExpenses || expense.status !== "Comprado").map((expense) => <article key={expense.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><div><h3 className="font-semibold">{expense.concept}</h3><p className="mt-1 text-xs text-slate-500">{expense.category}</p><span className={`mt-2 inline-block rounded-full px-2 py-1 text-xs font-semibold ${expense.status === "Comprado" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{expense.status}</span></div><p className="font-semibold">{currency.format(expense.amount)}</p></div><div className="mt-3 flex flex-wrap gap-2"><button className="button-secondary" onClick={() => updateExpense(expense.id, { status: expense.status === "Comprado" ? "Pendiente" : "Comprado" })}>{expense.status === "Comprado" ? "Marcar pendiente" : "Marcar comprado"}</button><button className="button-danger" onClick={() => deleteExpense(expense.id)}>Eliminar</button></div></article>)}</div>
+      {expenses.length === 0 && <p className="mt-5 text-sm text-slate-500">No hay gastos extras en este mes.</p>}
+    </section>
+      </CollapsibleSection>
+    </div>
+  </div>;
+}
+
+function MonthlyTotal({ label, value, warning = false }: { label: string; value: number; warning?: boolean }) {
+  return <div className="rounded-2xl border border-white/80 bg-white/80 p-4 backdrop-blur"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className={`mt-2 text-xl font-bold ${warning && value > 0 ? "text-slate-700" : "text-slate-800"}`}>{currency.format(value)}</p></div>;
+}
+
+type MoneyStatusItem = {
+  label: string;
+  value: number;
+  tone: "neutral" | "positive" | "warning";
+};
+
+const moneyStatusTone = {
+  neutral: "border-slate-200 bg-slate-50 text-slate-950",
+  positive: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  warning: "border-amber-200 bg-amber-50 text-amber-900",
+};
+
+function MoneyStatusSummary({ items }: { items: MoneyStatusItem[] }) {
+  return <dl className="mt-5 grid gap-2 sm:grid-cols-3" aria-label="Resumen de dinero">{items.map((item) => <div key={item.label} className={`min-w-0 rounded-2xl border p-3 ${moneyStatusTone[item.tone]}`}><dt className="text-xs font-semibold">{item.label}</dt><dd className="mt-1 break-words text-base font-bold tracking-tight">{currency.format(item.value)}</dd></div>)}</dl>;
+}
+
+function formatContentDate(date: string) {
+  return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
+}
+
+function formatCampaignPeriod(period: string) {
+  const [year, month] = period.split("-");
+  const label = months.find(([value]) => value === month)?.[1] ?? month;
+  return `${label} ${year}`;
+}
+
+function daysUntilPayment(dueDate: string) {
+  const [dueYear, dueMonth, dueDay] = dueDate.split("-").map(Number);
+  const todayParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(new Date());
+  const todayPart = (type: "year" | "month" | "day") => Number(todayParts.find((part) => part.type === type)?.value);
+  const today = Date.UTC(todayPart("year"), todayPart("month") - 1, todayPart("day"));
+  const due = Date.UTC(dueYear, dueMonth - 1, dueDay);
+  return Math.round((due - today) / 86_400_000);
+}
+
+function PaymentDueReminder({ dueDate }: { dueDate: string }) {
+  const days = daysUntilPayment(dueDate);
+  const label = days < -1
+    ? `Vencido hace ${Math.abs(days)} días`
+    : days === -1
+      ? "Vencido desde ayer"
+      : days === 0
+        ? "Pago esperado hoy"
+        : days === 1
+          ? "Falta 1 día para cobrar"
+          : `Faltan ${days} días para cobrar`;
+  const tone = days < 0
+    ? "border-red-200 bg-red-50 text-red-800"
+    : days <= 3
+      ? "border-amber-200 bg-amber-50 text-amber-800"
+      : "border-sky-200 bg-sky-50 text-sky-800";
+
+  return <div className={`w-full min-w-0 max-w-full self-end overflow-hidden rounded-xl border px-3 py-2 text-xs font-semibold ${tone}`}><p className="break-words">{label}</p><p className="mt-0.5 break-words font-normal opacity-80">Fecha: {formatContentDate(dueDate)}</p></div>;
+}

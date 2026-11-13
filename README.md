@@ -80,3 +80,9 @@ node tests/finance-insights.test.mjs
 npm run lint
 npx next typegen && npx tsc --noEmit
 ```
+
+## Secciones
+
+- **Finanzas** (`/`): salario fijo de Fundación de la Mujer, cuentas de la casa, transporte y gastos personales. Permite registrar el salario recibido y consultar los salarios ya pagados.
+- **Contenidos** (`/contenidos`): campañas, pagos de marcas, cobros de meses anteriores, ranking de marcas, calendario y gastos de trabajo. Las categorías Trabajo, Producción, Contenido y Publicidad se muestran aquí; los demás gastos quedan en Finanzas.
+- **Dashboard y Movimientos**: selector de sección para consultar cifras e historial de cada área por separado. Cambiar de sección no modifica ni elimina los registros existentes.

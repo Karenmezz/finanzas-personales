@@ -1,5 +1,7 @@
 "use client";
 
+import { AreaFilter } from "@/components/area-filter";
+import { selectFinanceArea, type FinanceArea } from "@/lib/finance-insights";
 import { useState } from "react";
 import { useFinance } from "@/components/finance-provider";
 import { availableYears, currency } from "@/lib/finance";
@@ -13,12 +15,14 @@ const months = [
 ];
 
 export default function TransactionsPage() {
-  const { data } = useFinance();
+  const { data: allData } = useFinance();
+  const [area, setArea] = useState<FinanceArea>("finances");
+  const data = selectFinanceArea(allData, area);
   const [selectedMonth, setSelectedMonth] = useState(() =>
     String(new Date().getMonth() + 1).padStart(2, "0"),
   );
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-  const years = availableYears(data);
+  const years = availableYears(allData);
   const selectedPeriod = `${selectedYear}-${selectedMonth}`;
   const monthName = months.find(([month]) => month === selectedMonth)?.[1];
   const campaigns = data.campaigns.filter((item) => item.month === selectedPeriod);
@@ -40,6 +44,7 @@ export default function TransactionsPage() {
         <p className="mt-2 text-slate-600">Selecciona un mes para ver lo ganado y gastado.</p></div>
         <label><span className="sr-only">Año</span><select className="h-10 min-w-[148px] rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold" value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
       </header>
+      <AreaFilter value={area} onChange={setArea} />
 
       <div className="mb-7 sm:hidden"><label htmlFor="movement-month" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Mes</label><select id="movement-month" className="w-44 rounded-xl border bg-white px-3 py-2.5 text-sm font-semibold" style={{ borderColor: data.monthColors[selectedMonth], backgroundColor: `${data.monthColors[selectedMonth]}33` }} value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>{months.map(([month, name]) => <option key={month} value={month}>{name}</option>)}</select></div>
       <nav className="mb-7 hidden gap-3 sm:grid sm:grid-cols-3 lg:grid-cols-6" aria-label="Seleccionar mes">
@@ -49,7 +54,7 @@ export default function TransactionsPage() {
           return (
             <button key={month} onClick={() => setSelectedMonth(month)} className="rounded-2xl border p-4 text-left transition hover:shadow-sm" style={{ borderColor: data.monthColors[month], backgroundColor: active ? `${data.monthColors[month]}55` : "white" }}>
               <span className="block font-semibold">{name}</span>
-              <span className="mt-1 block text-xs text-slate-500">{monthCampaigns} campañas</span>
+              <span className="mt-1 block text-xs text-slate-500">{monthCampaigns} {area === "content" ? "campañas" : "salarios"}</span>
             </button>
           );
         })}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { brandRanking, withMonthlyDefaults, previousPendingCampaigns } from '../src/lib/finance-insights.ts';
+import { brandRanking, withMonthlyDefaults, previousPendingCampaigns, selectFinanceArea } from '../src/lib/finance-insights.ts';
 
 const campaign = (overrides = {}) => ({ id: 'campaign', name: 'Video', brand: 'Marca', network: 'Instagram', value: 100, month: '2026-11', dueDate: '2026-11-30', status: 'Realizado', payments: [], ...overrides });
 const empty = () => ({ campaigns: [], bills: [], expenses: [], monthColors: {} });
@@ -75,4 +75,26 @@ test('fixed salary corrects unpaid records and preserves full and partial paymen
   const result = withMonthlyDefaults(data, [2026]);
   assert.equal(result.campaigns.find((item) => item.id === 'unpaid').value, 3100000);
   for (const id of ['partial', 'paid']) assert.deepEqual(result.campaigns.find((item) => item.id === id), data.campaigns.find((item) => item.id === id));
+});
+
+test('separates salary and household records from campaigns and work expenses without changing data', () => {
+  const data = empty();
+  data.campaigns = [campaign({ id: 'salary', brand: 'Fundación de la Mujer', value: 3100000 }), campaign({ id: 'work' })];
+  data.bills = [{ id: 'rent', name: 'Arriendo', category: 'Vivienda', amount: 887000, dueDate: '2026-11-10', paid: false }];
+  data.expenses = [
+    { id: 'food', concept: 'Mercado', category: 'Hogar', amount: 100, date: '2026-11-01', status: 'Pendiente' },
+    { id: 'production', concept: 'Grabación', category: ' Producción ', amount: 200, date: '2026-11-01', status: 'Comprado' },
+    { id: 'work-expense', concept: 'Edición', category: 'Trabajo', amount: 300, date: '2026-11-01', status: 'Pendiente' },
+  ];
+  const original = structuredClone(data);
+  const home = selectFinanceArea(data, 'finances');
+  const content = selectFinanceArea(data, 'content');
+  assert.deepEqual(home.campaigns.map((item) => item.id), ['salary']);
+  assert.deepEqual(content.campaigns.map((item) => item.id), ['work']);
+  assert.equal(home.bills.length, 1);
+  assert.equal(content.bills.length, 0);
+  assert.deepEqual(home.expenses.map((item) => item.id), ['food']);
+  assert.deepEqual(content.expenses.map((item) => item.id), ['production', 'work-expense']);
+  assert.deepEqual(data, original);
+  assert.equal(home.expenses.length + content.expenses.length, data.expenses.length);
 });

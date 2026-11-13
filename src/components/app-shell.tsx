@@ -7,6 +7,7 @@ import { LogoutButton } from "@/components/logout-button";
 
 const links = [
   ["Finanzas", "/"],
+  ["Contenidos", "/contenidos"],
   ["Movimientos", "/movimientos"],
   ["Dashboard general", "/dashboard"],
 ];
@@ -43,7 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-white text-slate-800 md:grid md:h-screen md:grid-cols-[240px_1fr] md:overflow-hidden">
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
         <Link href="/" className="font-bold text-slate-950">
-          Panel financiero
+          Mi organización
         </Link>
         <button
           ref={menuButtonRef}
@@ -73,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex items-center justify-between gap-4">
           <Link href="/" className="text-lg font-bold text-slate-950" onClick={closeMobileMenu}>
-            Panel financiero
+            Mi organización
           </Link>
           <button
             ref={closeButtonRef}
