@@ -19,9 +19,9 @@ async function preparePhoto(file: File): Promise<string> {
   } finally { bitmap.close(); }
 }
 export function ProfileSettings() {
-  const { profile,loading,error } = useProfile();
+  const { profile,loading,error,retryProfile } = useProfile();
   if (loading) return <p role="status" className="card text-sm text-slate-500">Cargando tu perfil…</p>;
-  if (error) return <p role="alert" className="card text-sm text-rose-700">{error}</p>;
+  if (error) return <div className="card space-y-3"><p role="alert" className="text-sm text-rose-700">{error}</p><button type="button" className="button-secondary" onClick={retryProfile}>Volver a intentar</button></div>;
   return <ProfileForm initial={profile} />;
 }
 function ProfileForm({ initial }: { initial: UserProfile }) {
