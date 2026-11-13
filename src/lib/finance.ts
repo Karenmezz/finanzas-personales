@@ -17,12 +17,17 @@ export type CampaignPayment = {
   exchangeRateDate?: string;
 };
 
+export type CampaignBenefit =
+  | { kind: "products"; description: string; quantity: number; received: boolean }
+  | { kind: "voucher"; description: string; amount: number; usedAmount: number; expiresOn?: string; received: boolean };
+
 export type Campaign = {
   id: string;
   name: string;
   brand: string;
   network: string;
   collaborationType?: string;
+  benefit?: CampaignBenefit;
   month?: string;
   value: number;
   currency?: "COP" | "USD";

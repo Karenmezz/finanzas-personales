@@ -1,3 +1,4 @@
+import type { CampaignBenefit } from "@/lib/finance";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const campaigns = sqliteTable("campaigns", {
@@ -6,6 +7,7 @@ export const campaigns = sqliteTable("campaigns", {
   brand: text("brand").notNull(),
   network: text("network").notNull(),
   collaborationType: text("collaboration_type"),
+  benefit: text("benefit", { mode: "json" }).$type<CampaignBenefit>(),
   month: text("month").notNull(),
   value: integer("value").notNull(),
   currency: text("currency", { enum: ["COP", "USD"] }).notNull().default("COP"),

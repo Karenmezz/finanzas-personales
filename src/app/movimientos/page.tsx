@@ -1,7 +1,7 @@
 "use client";
 
 import { AreaFilter } from "@/components/area-filter";
-import { selectFinanceArea, type FinanceArea } from "@/lib/finance-insights";
+import { isBarterCampaign, selectFinanceArea, type FinanceArea } from "@/lib/finance-insights";
 import { useState } from "react";
 import { useFinance } from "@/components/finance-provider";
 import { availableYears, currency } from "@/lib/finance";
@@ -25,7 +25,7 @@ export default function TransactionsPage() {
   const years = availableYears(allData);
   const selectedPeriod = `${selectedYear}-${selectedMonth}`;
   const monthName = months.find(([month]) => month === selectedMonth)?.[1];
-  const campaigns = data.campaigns.filter((item) => item.month === selectedPeriod);
+  const campaigns = data.campaigns.filter((item) => !isBarterCampaign(item) && (item.month ?? item.dueDate.slice(0, 7)) === selectedPeriod);
   const bills = data.bills.filter((item) => item.paid && item.dueDate.startsWith(selectedPeriod));
   const extras = data.expenses.filter((item) => item.status === "Comprado" && item.date.startsWith(selectedPeriod));
   const earned = campaigns.reduce((sum, item) => sum + item.value, 0);
@@ -49,7 +49,7 @@ export default function TransactionsPage() {
       <div className="mb-7 sm:hidden"><label htmlFor="movement-month" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Mes</label><select id="movement-month" className="w-44 rounded-xl border bg-white px-3 py-2.5 text-sm font-semibold" style={{ borderColor: data.monthColors[selectedMonth], backgroundColor: `${data.monthColors[selectedMonth]}33` }} value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>{months.map(([month, name]) => <option key={month} value={month}>{name}</option>)}</select></div>
       <nav className="mb-7 hidden gap-3 sm:grid sm:grid-cols-3 lg:grid-cols-6" aria-label="Seleccionar mes">
         {months.map(([month, name]) => {
-          const monthCampaigns = data.campaigns.filter((item) => item.month === `${selectedYear}-${month}`).length;
+          const monthCampaigns = data.campaigns.filter((item) => !isBarterCampaign(item) && (item.month ?? item.dueDate.slice(0, 7)) === `${selectedYear}-${month}`).length;
           const active = selectedMonth === month;
           return (
             <button key={month} onClick={() => setSelectedMonth(month)} className="rounded-2xl border p-4 text-left transition hover:shadow-sm" style={{ borderColor: data.monthColors[month], backgroundColor: active ? `${data.monthColors[month]}55` : "white" }}>

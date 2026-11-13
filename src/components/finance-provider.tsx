@@ -5,6 +5,7 @@ import type { Bill, Campaign, ExchangeRate, Expense, FinanceData } from "@/lib/f
 import { usePathname } from "next/navigation";
 import { bogotaDate, isDailyTrmRefreshDue, nextTrmRefreshAt, makeUsdPayment, revalueFinanceData } from "@/lib/usd";
 import { fetchExchangeRate } from "@/lib/usd-client";
+import { isBarterCampaign } from "@/lib/finance-insights";
 import { initialData } from "@/lib/finance";
 
 type FinanceContextValue = {
@@ -195,7 +196,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       })),
     addPayment: (campaignId, amount) => {
       const campaign = getSnapshot().campaigns.find((item) => item.id === campaignId);
-      if (!campaign || campaign.currency === "USD") throw new Error("Registra el pago en dólares con su fecha y TRM");
+      if (!campaign || isBarterCampaign(campaign) || campaign.currency === "USD") throw new Error("Registra el pago en dólares con su fecha y TRM");
       const pending = campaign.value - campaign.payments.reduce((sum, payment) => sum + payment.amount, 0);
       if (!Number.isSafeInteger(amount) || amount <= 0 || amount > pending) throw new Error("El pago no puede superar el saldo pendiente");
       update((current) => ({

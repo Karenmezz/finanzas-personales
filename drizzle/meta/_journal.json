@@ -15,6 +15,13 @@
       "when": 1794574915771,
       "tag": "0001_petite_human_fly",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794582159157,
+      "tag": "0002_shocking_korvac",
+      "breakpoints": true
     }
   ]
 }

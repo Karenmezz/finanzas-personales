@@ -1,5 +1,6 @@
 import { getFinanceData, replaceFinanceData } from "@/data/finance-data";
 import { bogotaDate, isDateOnly, revalueFinanceData, validateCampaignMoney } from "@/lib/usd";
+import { validateCampaignBenefit } from "@/lib/finance-insights";
 import type { FinanceData } from "@/lib/finance";
 import { cookies } from "next/headers";
 import { sessionCookieName, verifySessionToken } from "@/auth/session";
@@ -16,7 +17,7 @@ function isFinanceData(value: unknown): value is FinanceData {
   const candidate = value as Partial<FinanceData>;
   const quote = candidate.exchangeRate;
   if (quote !== undefined && (!quote || !Number.isFinite(quote.value) || quote.value <= 0 || !isDateOnly(quote.date) || quote.date > bogotaDate() || !isDateOnly(quote.validFrom) || !isDateOnly(quote.validTo) || quote.date < quote.validFrom || quote.date > quote.validTo)) return false;
-  return Boolean(Array.isArray(candidate.campaigns) && candidate.campaigns.every(validateCampaignMoney) && Array.isArray(candidate.bills) && Array.isArray(candidate.expenses) && candidate.monthColors && typeof candidate.monthColors === "object");
+  return Boolean(Array.isArray(candidate.campaigns) && candidate.campaigns.every((campaign) => validateCampaignMoney(campaign) && validateCampaignBenefit(campaign)) && Array.isArray(candidate.bills) && Array.isArray(candidate.expenses) && candidate.monthColors && typeof candidate.monthColors === "object");
 }
 
 export async function GET() {

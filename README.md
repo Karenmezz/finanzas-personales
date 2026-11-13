@@ -105,3 +105,15 @@ Pruebas de conversión e historial (Node.js 24):
 ```bash
 node tests/usd.test.mjs
 ```
+
+### Canjes y campañas mixtas
+
+En Contenidos hay pestañas **Campañas pagas**, **Canjes** y **Marcas**. Al crear o editar una colaboración se puede elegir Paga, Canje o Mixta (pago y canje). Las mixtas permanecen en Campañas pagas y muestran el beneficio separado del pago.
+
+- **Productos:** descripción, cantidad y recepción. No se registra precio ni valoración monetaria.
+- **Bono o saldo:** finalidad, valor en COP, recepción, vencimiento opcional y uso parcial del saldo. Registrar uso no crea un gasto ni un ingreso en efectivo.
+- La recepción del beneficio y el estado del contenido son independientes. La fecha para subir el video es opcional; sin ella se muestra “Sin fecha definida”. Al asignarla, aparece en el calendario compartido junto con las campañas pagas.
+- Los canjes completados se ocultan inicialmente y pueden consultarse con Mostrar completados. Los bonos siguen pendientes mientras conservan saldo por utilizar.
+- Dashboard muestra los beneficios aparte. Los canjes no incrementan ingresos, cuentas por cobrar, movimientos monetarios ni el ranking de marcas que más pagan. Las mixtas solo suman el pago acordado.
+
+La migración `0002_shocking_korvac.sql` agrega la columna opcional `campaigns.benefit` sin modificar pagos anteriores. Antes de desplegar esta versión, ejecutar `npm run db:migrate` sobre la base configurada (incluye las migraciones de USD y canjes). Verificaciones: `node tests/barter.test.mjs`, `node tests/finance-insights.test.mjs` y `node tests/usd.test.mjs`.

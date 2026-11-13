@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState, type KeyboardEvent } from "react";
-import { dashboardSummary, isFoundationSalary, selectFinanceArea } from "@/lib/finance-insights";
+import { dashboardSummary, isBarterCampaign, isFoundationSalary, selectFinanceArea } from "@/lib/finance-insights";
 import { SummaryCard } from "@/components/summary-card";
 import { useFinance } from "@/components/finance-provider";
 import { availableYears, currency } from "@/lib/finance";
@@ -13,6 +13,7 @@ const tabs = [
   { id: "general", label: "General" },
   { id: "finances", label: "Finanzas" },
   { id: "content", label: "Contenidos" },
+  { id: "barter", label: "Canjes" },
   { id: "brands", label: "Marcas" },
   { id: "movements", label: "Movimientos" },
 ] as const;
@@ -30,7 +31,7 @@ export default function DashboardPage() {
   const salaryTotal = summary.salaries.reduce((sum, salary) => sum + salary.value, 0);
   const brandTotal = summary.brandCampaigns.reduce((sum, campaign) => sum + campaign.value, 0);
   const movements = [
-    ...data.campaigns.flatMap((campaign) => campaign.payments.map((payment) => ({ id: `payment-${campaign.id}-${payment.id}`, concept: campaign.name, category: isFoundationSalary(campaign) ? "Salario" : campaign.brand, date: payment.date, amount: payment.amount, income: true }))),
+    ...data.campaigns.filter((campaign) => !isBarterCampaign(campaign)).flatMap((campaign) => campaign.payments.map((payment) => ({ id: `payment-${campaign.id}-${payment.id}`, concept: campaign.name, category: isFoundationSalary(campaign) ? "Salario" : campaign.brand, date: payment.date, amount: payment.amount, income: true }))),
     ...data.bills.filter((bill) => bill.paid).map((bill) => ({ id: `bill-${bill.id}`, concept: bill.name, category: "Cuenta de la casa", date: bill.dueDate, amount: bill.amount, income: false })),
     ...data.expenses.filter((expense) => expense.status === "Comprado").map((expense) => ({ id: `expense-${expense.id}`, concept: expense.concept, category: expense.category, date: expense.date, amount: expense.amount, income: false })),
   ].filter((movement) => movement.date.startsWith(`${selectedYear}-`)).sort((a, b) => b.date.localeCompare(a.date));
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   const labels = {
     general: "Salario, marcas, cuentas de la casa y gastos extras en un solo resumen.",
     finances: "Tu salario, las cuentas de la casa y todos los gastos extras.",
+    barter: "Productos y bonos recibidos, separados de tus ingresos en dinero.",
     content: "Campañas, publicaciones y cobros de tus colaboraciones.",
     brands: "Compara las marcas y consulta cuánto generan y cuánto han pagado.",
     movements: "Ingresos recibidos y gastos pagados durante el año seleccionado.",
@@ -56,10 +58,16 @@ export default function DashboardPage() {
     { titulo: "Balance", valor: currency.format(summary.balance), detalle: "Salario recibido menos gastos" },
   ];
   if (tab === "content" || tab === "brands") indicators = [
-    { titulo: "Campañas", valor: String(summary.brandCampaigns.length), detalle: "Colaboraciones del año" },
+    { titulo: "Campañas", valor: String(summary.contentCampaigns.length), detalle: "Pagas, canjes y mixtas" },
     { titulo: "Acordado", valor: currency.format(summary.generated), detalle: "Valor de las campañas" },
     { titulo: "Recibido", valor: currency.format(summary.received), detalle: "Pagos de marcas" },
     { titulo: "Por cobrar", valor: currency.format(summary.pending), detalle: "Saldo pendiente de marcas" },
+  ];
+  if (tab === "barter") indicators = [
+    { titulo: "Colaboraciones con canje", valor: String(summary.benefits.count), detalle: "Canjes y campañas mixtas" },
+    { titulo: "Por recibir", valor: String(summary.benefits.pending), detalle: "Beneficios pendientes" },
+    { titulo: "Productos recibidos", valor: String(summary.benefits.products), detalle: "Cantidad, sin precio" },
+    { titulo: "Saldo en bonos", valor: currency.format(summary.benefits.voucherBalance), detalle: "Beneficios para usar, no efectivo" },
   ];
   if (tab === "movements") indicators = [
     { titulo: "Movimientos", valor: String(movements.length), detalle: "Ingresos y salidas registrados" },
@@ -97,12 +105,14 @@ export default function DashboardPage() {
         <FinanceCharts data={data} year={selectedYear} />
         <BrandRanking campaigns={summary.brandCampaigns} period={String(selectedYear)} scrollable />
       </>}
+      {(tab === "general" || tab === "content" || tab === "barter") && summary.benefits.count > 0 && <section className="mt-4 rounded-2xl border border-violet-100 bg-violet-50/60 p-4" aria-label="Beneficios de canjes"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold text-violet-950">Canjes y beneficios</h2><Link className="button-secondary" href="/contenidos/canjes">Ver canjes</Link></div><p className="mt-2 text-sm text-violet-900">{summary.benefits.received} recibidos · {summary.benefits.pending} por recibir · {summary.benefits.withoutDate} sin fecha de publicación</p><p className="mt-2 text-xs text-slate-500">Los bonos y productos se controlan aparte del dinero ganado y del balance.</p></section>}
+      {tab === "barter" && summary.benefits.count === 0 && <p className="card mt-4 text-sm text-slate-500">Todavía no hay canjes en este año. <Link className="font-semibold text-violet-800" href="/contenidos/canjes">Registrar un canje</Link></p>}
       {tab === "finances" && <>
         <section className="card mt-6" aria-label="Finanzas del hogar"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Casa y salario</h2><Link className="button-secondary" href="/">Abrir Finanzas</Link></div><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt>Salario pendiente de recibir</dt><dd className="font-semibold">{currency.format(summary.pending)}</dd></div><div className="flex justify-between gap-3"><dt>Cuentas y gastos pendientes</dt><dd className="font-semibold">{currency.format(summary.pendingExpenses)}</dd></div></dl></section>
         <FinanceCharts data={scopedData} year={selectedYear} scope="finances" />
       </>}
       {tab === "content" && <>
-        <section className="card mt-6"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Estado del contenido</h2><Link className="button-secondary" href="/contenidos">Campañas y calendario</Link></div><dl className="mt-4 grid gap-3 sm:grid-cols-3">{["Pendiente", "En producción", "Realizado"].map((status) => <div key={status} className="rounded-xl bg-slate-50 p-4"><dt className="text-sm text-slate-500">{status}</dt><dd className="mt-2 text-xl font-bold">{summary.brandCampaigns.filter((campaign) => campaign.status === status).length}</dd></div>)}</dl></section>
+        <section className="card mt-6"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Estado del contenido</h2><Link className="button-secondary" href="/contenidos">Campañas y calendario</Link></div><dl className="mt-4 grid gap-3 sm:grid-cols-3">{["Pendiente", "En producción", "Realizado"].map((status) => <div key={status} className="rounded-xl bg-slate-50 p-4"><dt className="text-sm text-slate-500">{status}</dt><dd className="mt-2 text-xl font-bold">{summary.contentCampaigns.filter((campaign) => campaign.status === status).length}</dd></div>)}</dl></section>
         <FinanceCharts data={scopedData} year={selectedYear} scope="content" />
       </>}
       {tab === "brands" && <><div className="mt-6 flex justify-end"><Link className="button-secondary" href="/contenidos/marcas">Consultar una marca</Link></div><BrandRanking campaigns={summary.brandCampaigns} period={String(selectedYear)} scrollable /></>}

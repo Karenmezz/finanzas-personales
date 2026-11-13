@@ -55,6 +55,7 @@ export async function getFinanceData(): Promise<FinanceData> {
   const data: FinanceData = {
     campaigns: campaignRows.map((campaign) => ({
       ...campaign,
+      benefit: campaign.benefit ?? undefined,
       usdValueCents: campaign.usdValueCents ?? undefined,
       exchangeRate: campaign.exchangeRate ?? undefined,
       exchangeRateDate: campaign.exchangeRateDate ?? undefined,
@@ -97,6 +98,7 @@ export async function replaceFinanceData(data: FinanceData) {
         brand: campaign.brand,
         network: campaign.network,
         collaborationType: campaign.collaborationType,
+        benefit: campaign.benefit ?? null,
         month: campaign.month ?? campaign.dueDate.slice(0, 7),
         value: campaign.value,
         currency: campaign.currency ?? "COP",

@@ -17,7 +17,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { isFoundationSalary } from "@/lib/finance-insights";
+import { isBarterCampaign, isFoundationSalary } from "@/lib/finance-insights";
 import type { FinanceData } from "@/lib/finance";
 import { currency } from "@/lib/finance";
 
@@ -32,7 +32,7 @@ const compact = new Intl.NumberFormat("es-CO", { notation: "compact", maximumFra
 export function FinanceCharts({ data, year, scope = "all" }: { data: FinanceData; year: number; scope?: "all" | "finances" | "content" }) {
   const monthly = calendarMonths.map(([month, name]) => {
     const period = `${year}-${month}`;
-    const campaigns = data.campaigns.filter((item) => item.month === period);
+    const campaigns = data.campaigns.filter((item) => (item.month ?? item.dueDate.slice(0, 7)) === period && !isBarterCampaign(item));
     const generated = campaigns.reduce((sum, item) => sum + item.value, 0);
     const received = campaigns.reduce((sum, item) => sum + item.payments.reduce((total, payment) => total + payment.amount, 0), 0);
     const spent = data.bills.filter((item) => item.dueDate.startsWith(period) && item.paid).reduce((sum, item) => sum + item.amount, 0)
@@ -40,7 +40,7 @@ export function FinanceCharts({ data, year, scope = "all" }: { data: FinanceData
     return { month, name, generated, received, pending: generated - received, spent, balance: received - spent };
   });
 
-  const yearCampaigns = data.campaigns.filter((item) => (item.month ?? item.dueDate.slice(0, 7)).startsWith(`${year}-`) && !isFoundationSalary(item));
+  const yearCampaigns = data.campaigns.filter((item) => (item.month ?? item.dueDate.slice(0, 7)).startsWith(`${year}-`) && !isFoundationSalary(item) && !isBarterCampaign(item));
   const networks = Array.from(new Set(yearCampaigns.map((item) => item.network))).map((network) => ({
     name: network.replace("TikTok y Instagram", "TikTok + Instagram"),
     value: yearCampaigns.filter((item) => item.network === network).reduce((sum, item) => sum + item.value, 0),
