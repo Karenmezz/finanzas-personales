@@ -150,7 +150,9 @@ Asigna **Fecha de entrega del contenido (opcional)** al crear o editar. El calen
 
 Permite elegir mes, avanzar/retroceder y volver con Hoy. Tocar un día filtra el tablero inferior; Ver todo el mes restaura las entregas del mes. La cuadrícula se adapta a móvil sin desplazamiento horizontal. El diseño conserva la base neutra y usa el color configurado del mes solo en detalles de borde, selección y festivos nacionales de Colombia (incluye traslados al lunes y fechas de Semana Santa). Al seleccionar un festivo se muestra su nombre.
 
-Debajo del calendario está el kanban Pendiente / En producción / Publicado. Incluye entregas del mes y, opcionalmente, contenidos sin fecha de todos los meses. Al seleccionar un día se limita a sus entregas. Permite arrastrar tarjetas en computador o usar el selector de estado de cada tarjeta en móvil. Los cambios se guardan sobre las mismas campañas sin modificar pagos ni beneficios. En móvil las tres columnas caben juntas dentro del ancho del teléfono, con tarjetas y controles compactos y listas con desplazamiento vertical. En escritorio conservan tamaños amplios. Editar permite asignar, mover o quitar fechas desde esta vista.
+Campañas pagas y Calendario comparten el mismo selector de mes, con mes anterior, siguiente y Hoy.
+
+Debajo del calendario está el kanban Pendiente / En producción / Publicado. Incluye entregas del mes y, opcionalmente, contenidos sin fecha de todos los meses. Al seleccionar un día se limita a sus entregas. Permite arrastrar tarjetas en computador o tocar el botón compacto «Mover» de cada tarjeta en móvil para elegir el estado en un diálogo. Los cambios se guardan sobre las mismas campañas sin modificar pagos ni beneficios. En móvil las tres columnas caben juntas dentro del ancho del teléfono, con tarjetas y controles compactos y listas con desplazamiento vertical. En escritorio conservan tamaños amplios. Editar permite asignar, mover o quitar fechas desde esta vista.
 
 ### Pendientes personales y marcas en Dashboard
 
