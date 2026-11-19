@@ -83,3 +83,9 @@ export const personalTasks = sqliteTable("personal_tasks", {
 export const dataAdjustments = sqliteTable("data_adjustments", {
   id: text("id").primaryKey(),
 });
+
+// Single row ("finance") bumped on every successful save; a save based on an older revision is rejected.
+export const financeRevision = sqliteTable("finance_revision", {
+  id: text("id").primaryKey(),
+  revision: integer("revision").notNull(),
+});
