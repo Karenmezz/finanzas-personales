@@ -84,6 +84,8 @@ export type FinanceData = {
   expenses: Expense[];
   bills: Bill[];
   monthColors: Record<string, string>;
+  /** Server revision this copy is based on; sent back on save to detect stale writes. */
+  revision?: number;
 };
 
 export const initialData: FinanceData = {

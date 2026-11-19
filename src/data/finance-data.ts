@@ -3,13 +3,25 @@ import { getExchangeRate } from "@/lib/trm";
 import { pendingUsdCents, revalueFinanceData, scheduledTrmDate } from "@/lib/usd";
 import { applyIncomeStartAdjustment } from "@/db/income-start-adjustment";
 import { db } from "@/db";
-import { bills, campaigns, expenses, monthColors, payments, financeSettings } from "@/db/schema";
+import { bills, campaigns, expenses, monthColors, payments, financeSettings, financeRevision } from "@/db/schema";
 import { availableYears } from "@/lib/finance";
 import { adoptExistingRecurring, materializeRecurring } from "@/lib/recurring";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { FinanceData } from "@/lib/finance";
 
+export class RevisionConflict extends Error {}
+
 export async function getFinanceData(): Promise<FinanceData> {
+  const revision = await currentRevision(); // Read first: a save landing in between can only cause a safe 409, never a stale overwrite.
+  return { ...(await readFinanceData()), revision };
+}
+
+async function currentRevision() {
+  const [row] = await db.select().from(financeRevision).where(eq(financeRevision.id, "finance"));
+  return row?.revision ?? 0;
+}
+
+async function readFinanceData(): Promise<FinanceData> {
   const [campaignRows, paymentRows, billRows, expenseRows, colorRows, settingRows] = await Promise.all([
     db.select().from(campaigns),
     db.select().from(payments),
@@ -53,8 +65,15 @@ export async function getFinanceData(): Promise<FinanceData> {
   return revalueFinanceData(result);
 }
 
-export async function replaceFinanceData(data: FinanceData) {
-  await db.transaction(async (tx) => {
+// Saves only if baseRevision is still the latest, so a device holding stale data can never overwrite newer changes.
+export async function replaceFinanceData(data: FinanceData, baseRevision: number): Promise<number> {
+  return db.transaction(async (tx) => {
+    await tx.insert(financeRevision).values({ id: "finance", revision: 0 }).onConflictDoNothing();
+    const [bumped] = await tx.update(financeRevision)
+      .set({ revision: sql`${financeRevision.revision} + 1` })
+      .where(and(eq(financeRevision.id, "finance"), eq(financeRevision.revision, baseRevision)))
+      .returning({ revision: financeRevision.revision });
+    if (!bumped) throw new RevisionConflict();
     await tx.delete(payments);
     await tx.delete(campaigns);
     await tx.delete(bills);
@@ -90,5 +109,6 @@ export async function replaceFinanceData(data: FinanceData) {
     if (data.expenses.length) await tx.insert(expenses).values(data.expenses);
     const colors = Object.entries(data.monthColors).map(([month, color]) => ({ month, color }));
     if (colors.length) await tx.insert(monthColors).values(colors);
+    return bumped.revision;
   });
 }

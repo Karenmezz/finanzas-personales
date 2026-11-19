@@ -32,61 +32,108 @@ type FinanceContextValue = {
 };
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
+// Finance data lives only on the server; this key is kept just to clear copies left by older versions.
 const storageKey = "creator-finance-data-excel-v6";
-let currentData = initialData;
-let hydrated = false;
-const listeners = new Set<() => void>();
-let remoteSaveQueue = Promise.resolve();
 const autoTrmAttemptKey = `${storageKey}-trm-auto-day`;
 let lastAutoTrmAttempt: string | undefined;
+const listeners = new Set<() => void>();
 
-function getSnapshot() {
-  if (!hydrated && typeof window !== "undefined") {
-    const saved = window.localStorage.getItem(storageKey);
-    if (saved) {
-      const parsed = JSON.parse(saved) as FinanceData;
-      currentData = { ...parsed, monthColors: { ...initialData.monthColors, ...parsed.monthColors } };
-    }
-    currentData = revalueFinanceData(currentData);
-    hydrated = true;
-  }
-  return currentData;
-}
+let currentData = initialData;
+// Last data the server confirmed. A failed save reverts to it, so the screen never shows unsaved changes.
+let confirmed = initialData;
+let loaded = false; // Edits are blocked until this session has the server's data.
+let saving: Promise<void> | null = null;
+let saveRequested = false;
+
+type SyncStatus = { kind: "loading" | "ok" | "error"; message?: string };
+let status: SyncStatus = { kind: "loading" };
+
+function notify() { listeners.forEach((listener) => listener()); }
+function setStatus(next: SyncStatus) { status = next; notify(); }
+function getStatus() { return status; }
+function getSnapshot() { return currentData; }
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
 
-function queueRemoteSave(nextData: FinanceData) {
-  remoteSaveQueue = remoteSaveQueue
-    .catch(() => undefined)
-    .then(async () => {
-      const response = await fetch("/api/finance", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nextData),
-      });
-      if (!response.ok) throw new Error("No fue posible sincronizar con Turso");
-    })
-    .catch((error) => console.error("El cambio quedó guardado localmente", error));
-}
-
-function saveData(nextData: FinanceData, syncRemote = true, freshQuote?: ExchangeRate) {
+function prepare(nextData: FinanceData, freshQuote?: ExchangeRate) {
   nextData = { ...nextData, monthColors: { ...initialData.monthColors, ...nextData.monthColors } };
   const previousRate = currentData.exchangeRate;
   const nextRate = nextData.exchangeRate;
   const quote = freshQuote ?? (previousRate && (!nextRate || previousRate.date >= nextRate.date) ? previousRate : nextRate);
-  nextData = revalueFinanceData(materializeRecurring(nextData, availableYears(nextData)), quote);
-  currentData = nextData;
-  window.localStorage.setItem(storageKey, JSON.stringify(nextData));
-  listeners.forEach((listener) => listener());
-  if (syncRemote) queueRemoteSave(nextData);
+  return revalueFinanceData(materializeRecurring(nextData, availableYears(nextData)), quote);
+}
+
+function rejectChanges(message: string) {
+  currentData = confirmed;
+  saveRequested = false;
+  setStatus({ kind: "error", message });
+}
+
+function save() {
+  saveRequested = true;
+  if (saving) return;
+  saving = (async () => {
+    while (saveRequested) {
+      saveRequested = false;
+      const sent = currentData;
+      let response: Response | undefined;
+      try {
+        response = await fetch("/api/finance", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sent) });
+      } catch { /* Network failure: handled below. */ }
+      if (response?.status === 409) {
+        rejectChanges("Otro dispositivo guardó cambios antes, así que tu último cambio no se guardó. Ya se cargaron los datos más recientes; repítelo.");
+        await loadRemote({ force: true, keepStatus: true });
+        return;
+      }
+      if (!response?.ok) {
+        rejectChanges(response?.status === 401
+          ? "Tu sesión venció y el último cambio no se guardó. Vuelve a iniciar sesión."
+          : "No se pudo conectar con el servidor y el último cambio no se guardó. Inténtalo de nuevo.");
+        return;
+      }
+      const { revision } = (await response.json()) as { revision: number };
+      confirmed = { ...sent, revision };
+      currentData = currentData === sent ? confirmed : { ...currentData, revision };
+      if (status.kind === "error") setStatus({ kind: "ok" }); else notify();
+    }
+  })().finally(() => { saving = null; });
+}
+
+async function loadRemote({ force = false, keepStatus = false } = {}) {
+  if (saving && !force) return;
+  let response: Response | undefined;
+  try { response = await fetch("/api/finance", { cache: "no-store" }); } catch { /* Handled below. */ }
+  if (!response?.ok) {
+    setStatus({ kind: "error", message: loaded
+      ? "No se pudo conectar con el servidor; puede que no estés viendo los datos más recientes."
+      : "No se pudieron cargar los datos del servidor. Por seguridad no se puede editar hasta que carguen." });
+    return;
+  }
+  const remote = (await response.json()) as FinanceData;
+  // Skip if a save started meanwhile or this answer is older than what a save already confirmed.
+  if ((saving && !force) || (remote.revision ?? 0) < (confirmed.revision ?? 0)) return;
+  currentData = confirmed = prepare(remote);
+  loaded = true;
+  if (keepStatus) notify(); else setStatus({ kind: "ok" });
+}
+
+function saveData(nextData: FinanceData, syncRemote = true, freshQuote?: ExchangeRate) {
+  if (syncRemote && !loaded) {
+    setStatus({ kind: "error", message: "Aún no se cargan los datos del servidor, así que este cambio no se guardó. Espera a que carguen e inténtalo de nuevo." });
+    return;
+  }
+  currentData = prepare(nextData, freshQuote);
+  notify();
+  if (syncRemote) save();
 }
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const data = useSyncExternalStore(subscribe, getSnapshot, () => initialData);
+  const syncStatus = useSyncExternalStore(subscribe, getStatus, getStatus);
   const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
   const refreshExchangeRate = useCallback(async (date = bogotaDate()) => {
     try {
@@ -120,23 +167,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }, [refreshExchangeRate, pathname]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    async function loadRemoteData() {
-      try {
-        const response = await fetch("/api/finance", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (!response.ok) return;
-        const remoteData = (await response.json()) as FinanceData;
-        saveData(remoteData, false);
-      } catch (error) {
-        if (!controller.signal.aborted) console.error("Se usará el respaldo local", error);
-      }
-    }
-    void loadRemoteData();
-    return () => controller.abort();
-  }, []);
+    if (pathname === "/login") return;
+    try { window.localStorage.removeItem(storageKey); } catch { /* Nothing to clean up. */ }
+    void loadRemote();
+    const refresh = () => { if (document.visibilityState === "visible") void loadRemote(); };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("online", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("online", refresh);
+    };
+  }, [pathname]);
 
   function update(updater: (current: FinanceData) => FinanceData) {
     saveData(updater(getSnapshot()));
@@ -256,7 +297,18 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>
+    <FinanceContext.Provider value={value}>
+      {children}
+      {pathname !== "/login" && syncStatus.kind === "loading" && (
+        <div role="status" className="fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[100] mx-auto max-w-xs rounded-2xl bg-slate-900 px-4 py-2 text-center text-sm text-white shadow-xl">Cargando datos…</div>
+      )}
+      {syncStatus.kind === "error" && (
+        <div role="alert" className="fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[100] mx-auto flex max-w-xl items-start gap-3 rounded-2xl bg-red-600 p-4 text-sm text-white shadow-xl">
+          <p className="flex-1">{syncStatus.message}</p>
+          <button type="button" onClick={() => void loadRemote()} className="shrink-0 rounded-lg bg-white/20 px-3 py-1.5 font-semibold">Recargar</button>
+        </div>
+      )}
+    </FinanceContext.Provider>
   );
 }
 
