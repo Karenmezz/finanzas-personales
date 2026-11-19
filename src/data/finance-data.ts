@@ -3,35 +3,33 @@ import { getExchangeRate } from "@/lib/trm";
 import { pendingUsdCents, revalueFinanceData, scheduledTrmDate } from "@/lib/usd";
 import { applyIncomeStartAdjustment } from "@/db/income-start-adjustment";
 import { db } from "@/db";
-import { bills, campaigns, expenses, monthColors, payments, financeSettings, financeRevision } from "@/db/schema";
+import { bills, campaigns, expenses, monthColors, payments, financeSettings } from "@/db/schema";
 import { availableYears } from "@/lib/finance";
 import { adoptExistingRecurring, materializeRecurring } from "@/lib/recurring";
-import { and, eq, sql } from "drizzle-orm";
+import { applyOperation, isValidFinanceData, type FinanceOperation } from "@/lib/finance-operations";
+import { eq, inArray } from "drizzle-orm";
 import type { FinanceData } from "@/lib/finance";
 
-export class RevisionConflict extends Error {}
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** An operation the user is not allowed to make; its message is safe to show. */
+export class OperationError extends Error {}
 
 export async function getFinanceData(): Promise<FinanceData> {
-  const revision = await currentRevision(); // Read first: a save landing in between can only cause a safe 409, never a stale overwrite.
-  return { ...(await readFinanceData()), revision };
+  return finishRead(await readStored(db));
 }
 
-async function currentRevision() {
-  const [row] = await db.select().from(financeRevision).where(eq(financeRevision.id, "finance"));
-  return row?.revision ?? 0;
-}
-
-async function readFinanceData(): Promise<FinanceData> {
+async function readStored(executor: Pick<typeof db, "select">): Promise<FinanceData> {
   const [campaignRows, paymentRows, billRows, expenseRows, colorRows, settingRows] = await Promise.all([
-    db.select().from(campaigns),
-    db.select().from(payments),
-    db.select().from(bills),
-    db.select().from(expenses),
-    db.select().from(monthColors),
-    db.select().from(financeSettings),
+    executor.select().from(campaigns),
+    executor.select().from(payments),
+    executor.select().from(bills),
+    executor.select().from(expenses),
+    executor.select().from(monthColors),
+    executor.select().from(financeSettings),
   ]);
 
-  const data: FinanceData = {
+  return {
     recurring: settingRows.find((setting) => setting.id === "recurring")?.value,
     campaigns: campaignRows.map((campaign) => ({
       ...campaign,
@@ -49,6 +47,9 @@ async function readFinanceData(): Promise<FinanceData> {
     expenses: expenseRows,
     monthColors: Object.fromEntries(colorRows.map(({ month, color }) => [month, color])),
   };
+}
+
+async function finishRead(data: FinanceData): Promise<FinanceData> {
   const adopted = adoptExistingRecurring(data);
   if (!data.recurring) await db.transaction(async (tx) => {
     await tx.insert(financeSettings).values({ id: "recurring", value: adopted.recurring! }).onConflictDoNothing();
@@ -65,50 +66,107 @@ async function readFinanceData(): Promise<FinanceData> {
   return revalueFinanceData(result);
 }
 
-// Saves only if baseRevision is still the latest, so a device holding stale data can never overwrite newer changes.
-export async function replaceFinanceData(data: FinanceData, baseRevision: number): Promise<number> {
-  return db.transaction(async (tx) => {
-    await tx.insert(financeRevision).values({ id: "finance", revision: 0 }).onConflictDoNothing();
-    const [bumped] = await tx.update(financeRevision)
-      .set({ revision: sql`${financeRevision.revision} + 1` })
-      .where(and(eq(financeRevision.id, "finance"), eq(financeRevision.revision, baseRevision)))
-      .returning({ revision: financeRevision.revision });
-    if (!bumped) throw new RevisionConflict();
-    await tx.delete(payments);
-    await tx.delete(campaigns);
-    await tx.delete(bills);
-    await tx.delete(expenses);
-    await tx.delete(monthColors);
-    if (data.recurring) await tx.insert(financeSettings).values({ id: "recurring", value: data.recurring }).onConflictDoUpdate({ target: financeSettings.id, set: { value: data.recurring } });
-
-    if (data.campaigns.length) {
-      await tx.insert(campaigns).values(data.campaigns.map((campaign) => ({
-        id: campaign.id,
-        name: campaign.name,
-        brand: campaign.brand,
-        network: campaign.network,
-        incomeType: campaign.incomeType ?? null,
-        recurringId: campaign.recurringId ?? null,
-        manualOverride: campaign.manualOverride ?? false,
-        collaborationType: campaign.collaborationType,
-        benefit: campaign.benefit ?? null,
-        month: campaign.month ?? campaign.dueDate.slice(0, 7),
-        value: campaign.value,
-        currency: campaign.currency ?? "COP",
-        usdValueCents: campaign.usdValueCents ?? null,
-        exchangeRate: campaign.exchangeRate ?? null,
-        exchangeRateDate: campaign.exchangeRateDate ?? null,
-        dueDate: campaign.dueDate,
-        contentDueDate: campaign.contentDueDate || null,
-        status: campaign.status,
-      })));
-      const paymentValues = data.campaigns.flatMap((campaign) => campaign.payments.map((payment) => ({ ...payment, campaignId: campaign.id })));
-      if (paymentValues.length) await tx.insert(payments).values(paymentValues);
-    }
-    if (data.bills.length) await tx.insert(bills).values(data.bills);
-    if (data.expenses.length) await tx.insert(expenses).values(data.expenses);
-    const colors = Object.entries(data.monthColors).map(([month, color]) => ({ month, color }));
-    if (colors.length) await tx.insert(monthColors).values(colors);
-    return bumped.revision;
+/**
+ * Applies one user operation to the latest stored data inside a single write transaction, then writes only
+ * the rows it changed. Concurrent operations from different devices are serialized and never overwrite each other.
+ */
+export async function applyFinanceOperation(op: FinanceOperation) {
+  await db.transaction(async (tx) => {
+    const stored = await readStored(tx);
+    let next: FinanceData;
+    try { next = applyOperation(adoptExistingRecurring(stored), op); }
+    catch (error) { throw new OperationError(error instanceof Error ? error.message : "Operación inválida"); }
+    next = materializeRecurring(next, availableYears(next));
+    if (!isValidFinanceData(next)) throw new OperationError("Revisa los datos ingresados");
+    await writeChanges(tx, stored, next);
   });
+}
+
+function toRows(data: FinanceData) {
+  return {
+    campaigns: data.campaigns.map((campaign) => ({
+      id: campaign.id,
+      name: campaign.name,
+      brand: campaign.brand,
+      network: campaign.network,
+      incomeType: campaign.incomeType ?? null,
+      recurringId: campaign.recurringId ?? null,
+      manualOverride: campaign.manualOverride ?? false,
+      collaborationType: campaign.collaborationType ?? null,
+      benefit: campaign.benefit ?? null,
+      month: campaign.month ?? campaign.dueDate.slice(0, 7),
+      value: campaign.value,
+      currency: campaign.currency ?? "COP",
+      usdValueCents: campaign.usdValueCents ?? null,
+      exchangeRate: campaign.exchangeRate ?? null,
+      exchangeRateDate: campaign.exchangeRateDate ?? null,
+      dueDate: campaign.dueDate,
+      contentDueDate: campaign.contentDueDate || null,
+      status: campaign.status,
+    })),
+    payments: data.campaigns.flatMap((campaign) => campaign.payments.map((payment) => ({
+      id: payment.id,
+      campaignId: campaign.id,
+      amount: payment.amount,
+      date: payment.date,
+      usdAmountCents: payment.usdAmountCents ?? null,
+      exchangeRate: payment.exchangeRate ?? null,
+      exchangeRateDate: payment.exchangeRateDate ?? null,
+    }))),
+    bills: data.bills.map((bill) => ({
+      id: bill.id,
+      name: bill.name,
+      category: bill.category,
+      amount: bill.amount,
+      dueDate: bill.dueDate,
+      paid: bill.paid,
+      note: bill.note ?? null,
+      recurringId: bill.recurringId ?? null,
+      manualOverride: bill.manualOverride ?? false,
+    })),
+    expenses: data.expenses.map(({ id, concept, category, amount, date, status }) => ({ id, concept, category, amount, date, status })),
+    monthColors: Object.entries(data.monthColors).map(([month, color]) => ({ id: month, month, color })),
+  };
+}
+
+function diff<T extends { id: string }>(before: T[], after: T[]) {
+  const old = new Map(before.map((row) => [row.id, JSON.stringify(row)]));
+  const kept = new Set(after.map((row) => row.id));
+  return {
+    removed: before.filter((row) => !kept.has(row.id)).map((row) => row.id),
+    added: after.filter((row) => !old.has(row.id)),
+    changed: after.filter((row) => old.has(row.id) && old.get(row.id) !== JSON.stringify(row)),
+  };
+}
+
+async function writeChanges(tx: Tx, stored: FinanceData, next: FinanceData) {
+  const before = toRows(stored);
+  const after = toRows(next);
+  const c = diff(before.campaigns, after.campaigns);
+  const p = diff(before.payments, after.payments);
+  const b = diff(before.bills, after.bills);
+  const e = diff(before.expenses, after.expenses);
+  const m = diff(before.monthColors, after.monthColors);
+
+  // Payments first: they reference campaigns.
+  if (p.removed.length) await tx.delete(payments).where(inArray(payments.id, p.removed));
+  if (c.removed.length) await tx.delete(campaigns).where(inArray(campaigns.id, c.removed));
+  if (b.removed.length) await tx.delete(bills).where(inArray(bills.id, b.removed));
+  if (e.removed.length) await tx.delete(expenses).where(inArray(expenses.id, e.removed));
+  if (m.removed.length) await tx.delete(monthColors).where(inArray(monthColors.month, m.removed));
+
+  if (c.added.length) await tx.insert(campaigns).values(c.added);
+  for (const row of c.changed) await tx.update(campaigns).set(row).where(eq(campaigns.id, row.id));
+  if (p.added.length) await tx.insert(payments).values(p.added);
+  for (const row of p.changed) await tx.update(payments).set(row).where(eq(payments.id, row.id));
+  if (b.added.length) await tx.insert(bills).values(b.added);
+  for (const row of b.changed) await tx.update(bills).set(row).where(eq(bills.id, row.id));
+  if (e.added.length) await tx.insert(expenses).values(e.added);
+  for (const row of e.changed) await tx.update(expenses).set(row).where(eq(expenses.id, row.id));
+  for (const { month, color } of [...m.added, ...m.changed]) {
+    await tx.insert(monthColors).values({ month, color }).onConflictDoUpdate({ target: monthColors.month, set: { color } });
+  }
+  if (next.recurring && JSON.stringify(next.recurring) !== JSON.stringify(stored.recurring)) {
+    await tx.insert(financeSettings).values({ id: "recurring", value: next.recurring }).onConflictDoUpdate({ target: financeSettings.id, set: { value: next.recurring } });
+  }
 }
