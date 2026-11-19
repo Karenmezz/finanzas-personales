@@ -32,26 +32,31 @@ export function recurringDate(rule: RecurringRule, period: string) {
 }
 
 // Expenses generate from the current month; incomes honor their configured historical start.
-// Recorded past months and payments remain immutable here.
+// Nothing is generated past December of the current year. Records with payments or manual edits are
+// always kept; untouched generated records outside the rule's dates or past that limit are dropped.
 export function materializeRecurring(data: FinanceData, years: number[], today = todayInColombia()): FinanceData {
   if (!data.recurring) return data;
   const periodNow = today.slice(0, 7);
+  const horizon = `${today.slice(0, 4)}-12`;
+  const outOfRange = (rule: RecurringRule, period: string) => period < rule.startOn.slice(0, 7) || Boolean(rule.endOn && period > rule.endOn.slice(0, 7)) || period > horizon;
   const rules = new Map(data.recurring.rules.map((rule) => [rule.id, rule]));
   const bills: Bill[] = [];
   const campaigns: Campaign[] = [];
   for (const bill of data.bills) {
     const period = bill.dueDate.slice(0, 7);
     const rule = bill.recurringId ? rules.get(bill.recurringId) : undefined;
-    if (!rule || period < periodNow || bill.paid) { bills.push(bill); continue; }
-    const dueDate = recurringDate(rule, period);
+    if (!rule || bill.paid) { bills.push(bill); continue; }
+    if (period < periodNow) { if (bill.manualOverride || !outOfRange(rule, period)) bills.push(bill); continue; }
+    const dueDate = period > horizon ? undefined : recurringDate(rule, period);
     if (dueDate && bill.manualOverride) bills.push(bill);
     else if (dueDate) bills.push({ ...bill, name: rule.name, category: rule.category, dueDate, amount: recurringVersion(rule, period)!.amount });
   }
   for (const campaign of data.campaigns) {
     const period = campaign.month ?? campaign.dueDate.slice(0, 7);
     const rule = campaign.recurringId ? rules.get(campaign.recurringId) : undefined;
-    if (!rule || period < periodNow || campaign.payments.length) { campaigns.push(campaign); continue; }
-    const dueDate = recurringDate(rule, period);
+    if (!rule || campaign.payments.length) { campaigns.push(campaign); continue; }
+    if (period < periodNow) { if (campaign.manualOverride || campaign.status !== "Pendiente" || !outOfRange(rule, period)) campaigns.push(campaign); continue; }
+    const dueDate = period > horizon ? undefined : recurringDate(rule, period);
     if (dueDate && campaign.manualOverride) campaigns.push(campaign);
     else if (dueDate) campaigns.push({ ...campaign, name: rule.name, brand: rule.category, dueDate, value: recurringVersion(rule, period)!.amount });
   }
@@ -63,7 +68,7 @@ export function materializeRecurring(data: FinanceData, years: number[], today =
   }
   for (const rule of rules.values()) for (const year of new Set(years)) for (let month = 1; month <= 12; month++) {
     const period = `${year}-${String(month).padStart(2, "0")}`;
-    if (period < periodNow && rule.kind === "expense") continue;
+    if ((period < periodNow && rule.kind === "expense") || period > horizon) continue;
     const date = recurringDate(rule, period);
     if (!date) continue;
     const key = `${rule.id}:${period}`;
