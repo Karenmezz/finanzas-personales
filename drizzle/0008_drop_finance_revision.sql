@@ -1,1 +1,0 @@
-DROP TABLE `finance_revision`;
