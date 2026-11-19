@@ -57,6 +57,13 @@
       "when": 1795115261881,
       "tag": "0007_finance_revision",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795117824776,
+      "tag": "0008_drop_finance_revision",
+      "breakpoints": true
     }
   ]
 }

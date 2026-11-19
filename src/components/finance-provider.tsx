@@ -3,11 +3,11 @@
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import type { Bill, Campaign, ExchangeRate, Expense, FinanceData, RecurringRule } from "@/lib/finance";
 import { usePathname } from "next/navigation";
-import { bogotaDate, isDailyTrmRefreshDue, nextTrmRefreshAt, makeUsdPayment, revalueFinanceData } from "@/lib/usd";
+import { bogotaDate, isDailyTrmRefreshDue, nextTrmRefreshAt, revalueFinanceData } from "@/lib/usd";
 import { fetchExchangeRate } from "@/lib/usd-client";
-import { isBarterCampaign } from "@/lib/finance-insights";
-import { adoptExistingRecurring, changeRecurringAmount, materializeRecurring } from "@/lib/recurring";
+import { materializeRecurring } from "@/lib/recurring";
 import { availableYears, initialData } from "@/lib/finance";
+import { applyOperation, type FinanceOperation } from "@/lib/finance-operations";
 
 type FinanceContextValue = {
   data: FinanceData;
@@ -39,11 +39,8 @@ let lastAutoTrmAttempt: string | undefined;
 const listeners = new Set<() => void>();
 
 let currentData = initialData;
-// Last data the server confirmed. A failed save reverts to it, so the screen never shows unsaved changes.
-let confirmed = initialData;
-let loaded = false; // Edits are blocked until this session has the server's data.
-let saving: Promise<void> | null = null;
-let saveRequested = false;
+let pending = 0; // Operations sent and not answered yet.
+let queue = Promise.resolve();
 
 type SyncStatus = { kind: "loading" | "ok" | "error"; message?: string };
 let status: SyncStatus = { kind: "loading" };
@@ -66,68 +63,38 @@ function prepare(nextData: FinanceData, freshQuote?: ExchangeRate) {
   return revalueFinanceData(materializeRecurring(nextData, availableYears(nextData)), quote);
 }
 
-function rejectChanges(message: string) {
-  currentData = confirmed;
-  saveRequested = false;
-  setStatus({ kind: "error", message });
-}
-
-function save() {
-  saveRequested = true;
-  if (saving) return;
-  saving = (async () => {
-    while (saveRequested) {
-      saveRequested = false;
-      const sent = currentData;
-      let response: Response | undefined;
-      try {
-        response = await fetch("/api/finance", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sent) });
-      } catch { /* Network failure: handled below. */ }
-      if (response?.status === 409) {
-        rejectChanges("Otro dispositivo guardó cambios antes, así que tu último cambio no se guardó. Ya se cargaron los datos más recientes; repítelo.");
-        await loadRemote({ force: true, keepStatus: true });
-        return;
-      }
-      if (!response?.ok) {
-        rejectChanges(response?.status === 401
-          ? "Tu sesión venció y el último cambio no se guardó. Vuelve a iniciar sesión."
-          : "No se pudo conectar con el servidor y el último cambio no se guardó. Inténtalo de nuevo.");
-        return;
-      }
-      const { revision } = (await response.json()) as { revision: number };
-      confirmed = { ...sent, revision };
-      currentData = currentData === sent ? confirmed : { ...currentData, revision };
-      if (status.kind === "error") setStatus({ kind: "ok" }); else notify();
-    }
-  })().finally(() => { saving = null; });
-}
-
-async function loadRemote({ force = false, keepStatus = false } = {}) {
-  if (saving && !force) return;
+async function loadRemote({ keepStatus = false } = {}) {
   let response: Response | undefined;
   try { response = await fetch("/api/finance", { cache: "no-store" }); } catch { /* Handled below. */ }
   if (!response?.ok) {
-    setStatus({ kind: "error", message: loaded
-      ? "No se pudo conectar con el servidor; puede que no estés viendo los datos más recientes."
-      : "No se pudieron cargar los datos del servidor. Por seguridad no se puede editar hasta que carguen." });
+    setStatus({ kind: "error", message: response?.status === 401 ? "Tu sesión venció. Vuelve a iniciar sesión." : "No se pudieron cargar los datos del servidor." });
     return;
   }
   const remote = (await response.json()) as FinanceData;
-  // Skip if a save started meanwhile or this answer is older than what a save already confirmed.
-  if ((saving && !force) || (remote.revision ?? 0) < (confirmed.revision ?? 0)) return;
-  currentData = confirmed = prepare(remote);
-  loaded = true;
+  if (pending > 0) return; // An operation's answer will bring fresher data.
+  currentData = prepare(remote);
   if (keepStatus) notify(); else setStatus({ kind: "ok" });
 }
 
-function saveData(nextData: FinanceData, syncRemote = true, freshQuote?: ExchangeRate) {
-  if (syncRemote && !loaded) {
-    setStatus({ kind: "error", message: "Aún no se cargan los datos del servidor, así que este cambio no se guardó. Espera a que carguen e inténtalo de nuevo." });
-    return;
-  }
-  currentData = prepare(nextData, freshQuote);
+// Shows the change right away, sends only the operation, then shows what the server actually stored.
+// Validation errors throw synchronously, as before, so forms can display them.
+function send(op: FinanceOperation) {
+  currentData = prepare(applyOperation(currentData, op));
   notify();
-  if (syncRemote) save();
+  pending += 1;
+  queue = queue.then(async () => {
+    let response: Response | undefined;
+    try { response = await fetch("/api/finance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(op) }); } catch { /* Handled below. */ }
+    pending -= 1;
+    if (!response?.ok) {
+      const reason = response?.status === 401 ? "Tu sesión venció" : ((await response?.json().catch(() => null)) as { error?: string } | null)?.error ?? "No se pudo conectar con el servidor";
+      setStatus({ kind: "error", message: `${reason}. El cambio no se guardó.` });
+      if (pending === 0) await loadRemote({ keepStatus: true });
+      return;
+    }
+    const remote = (await response.json()) as FinanceData;
+    if (pending === 0) { currentData = prepare(remote); notify(); }
+  });
 }
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
@@ -138,7 +105,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const refreshExchangeRate = useCallback(async (date = bogotaDate()) => {
     try {
       const quote = await fetchExchangeRate(date);
-      saveData(revalueFinanceData(getSnapshot(), quote), false, quote);
+      currentData = prepare(revalueFinanceData(currentData, quote), quote);
+      notify();
       setExchangeRateError(null);
     } catch (error) {
       setExchangeRateError(error instanceof Error ? error.message : "No fue posible actualizar la TRM");
@@ -179,121 +147,29 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     };
   }, [pathname]);
 
-  function update(updater: (current: FinanceData) => FinanceData) {
-    saveData(updater(getSnapshot()));
-  }
-
   const value: FinanceContextValue = {
     data,
-    saveRecurringRule: (rule) => update((current) => {
-      const adopted = adoptExistingRecurring(current);
-      return { ...adopted, recurring: { version: 1, rules: [...adopted.recurring!.rules.filter((item) => item.id !== rule.id), rule] } };
-    }),
-    changeMonthlyAmount: (kind, id, amount, scope) => update((current) => changeRecurringAmount(current, kind, id, amount, scope)),
     exchangeRateError,
     refreshExchangeRate,
-    addUsdPayment: (campaignId, cents, date, quote) => update((current) => ({
-      ...current,
-      campaigns: current.campaigns.map((campaign) => campaign.id === campaignId
-        ? { ...campaign, payments: [...campaign.payments, makeUsdPayment(campaign, cents, date, quote, crypto.randomUUID())] } : campaign),
-    })),
-    addCampaign: (campaign) =>
-      update((current) => ({
-        ...current,
-        campaigns: [campaign, ...current.campaigns],
-      })),
-    updateCampaign: (id, changes) =>
-      update((current) => ({
-        ...current,
-        campaigns: current.campaigns.map((item) =>
-          item.id === id ? { ...item, ...changes } : item,
-        ),
-      })),
-    deleteCampaign: (id) =>
-      update((current) => ({
-        ...current,
-        campaigns: current.campaigns.filter((item) => item.id !== id),
-      })),
-    addPayment: (campaignId, amount) => {
-      const campaign = getSnapshot().campaigns.find((item) => item.id === campaignId);
-      if (!campaign || isBarterCampaign(campaign) || campaign.currency === "USD") throw new Error("Registra el pago en dólares con su fecha y TRM");
-      const pending = campaign.value - campaign.payments.reduce((sum, payment) => sum + payment.amount, 0);
-      if (!Number.isSafeInteger(amount) || amount <= 0 || amount > pending) throw new Error("El pago no puede superar el saldo pendiente");
-      update((current) => ({
-        ...current,
-        campaigns: current.campaigns.map((campaign) =>
-          campaign.id === campaignId
-            ? {
-                ...campaign,
-                payments: [
-                  ...campaign.payments,
-                  {
-                    id: crypto.randomUUID(),
-                    amount,
-                    date: bogotaDate(),
-                  },
-                ],
-              }
-            : campaign,
-        ),
-      }));
+    saveRecurringRule: (rule) => send({ type: "saveRecurringRule", rule }),
+    changeMonthlyAmount: (kind, id, amount, scope) => send({ type: "changeMonthlyAmount", kind, id, amount, scope }),
+    addCampaign: (campaign) => send({ type: "addCampaign", campaign }),
+    updateCampaign: (id, changes) => send({ type: "updateCampaign", id, changes }),
+    deleteCampaign: (id) => send({ type: "deleteCampaign", id }),
+    addPayment: (campaignId, amount) => send({ type: "addPayment", campaignId, amount, paymentId: crypto.randomUUID() }),
+    addUsdPayment: (campaignId, cents, date, quote) => send({ type: "addUsdPayment", campaignId, cents, date, quote, paymentId: crypto.randomUUID() }),
+    removeLastPayment: (campaignId) => send({ type: "removeLastPayment", campaignId }),
+    addExpense: (expense) => send({ type: "addExpense", expense }),
+    updateExpense: (id, changes) => send({ type: "updateExpense", id, changes }),
+    deleteExpense: (id) => send({ type: "deleteExpense", id }),
+    addBill: (bill) => send({ type: "addBill", bill }),
+    updateBill: (id, changes) => send({ type: "updateBill", id, changes }),
+    toggleBill: (id) => {
+      const bill = currentData.bills.find((item) => item.id === id);
+      if (bill) send({ type: "setBillPaid", id, paid: !bill.paid });
     },
-    removeLastPayment: (campaignId) =>
-      update((current) => ({
-        ...current,
-        campaigns: current.campaigns.map((campaign) =>
-          campaign.id === campaignId && campaign.payments.length > 0
-            ? { ...campaign, payments: campaign.payments.slice(0, -1) }
-            : campaign,
-        ),
-      })),
-    addExpense: (expense) =>
-      update((current) => ({
-        ...current,
-        expenses: [expense, ...current.expenses],
-      })),
-    updateExpense: (id, changes) =>
-      update((current) => ({
-        ...current,
-        expenses: current.expenses.map((item) =>
-          item.id === id ? { ...item, ...changes } : item,
-        ),
-      })),
-    deleteExpense: (id) =>
-      update((current) => ({
-        ...current,
-        expenses: current.expenses.filter((item) => item.id !== id),
-      })),
-    addBill: (bill) =>
-      update((current) => ({ ...current, bills: [bill, ...current.bills] })),
-    updateBill: (id, changes) =>
-      update((current) => ({
-        ...current,
-        bills: current.bills.map((item) =>
-          item.id === id ? { ...item, ...changes } : item,
-        ),
-      })),
-    toggleBill: (id) =>
-      update((current) => ({
-        ...current,
-        bills: current.bills.map((bill) =>
-          bill.id === id ? { ...bill, paid: !bill.paid } : bill,
-        ),
-      })),
-    deleteBill: (id) =>
-      update((current) => ({
-        ...current,
-        bills: current.bills.filter((item) => item.id !== id),
-        recurring: current.recurring ? { ...current.recurring, rules: current.recurring.rules.map((rule) => {
-          const bill = current.bills.find((item) => item.id === id && item.recurringId === rule.id);
-          return bill ? { ...rule, skippedPeriods: [...new Set([...(rule.skippedPeriods ?? []), bill.dueDate.slice(0, 7)])] } : rule;
-        }) } : current.recurring,
-      })),
-    updateMonthColor: (month, color) =>
-      update((current) => ({
-        ...current,
-        monthColors: { ...current.monthColors, [month]: color },
-      })),
+    deleteBill: (id) => send({ type: "deleteBill", id }),
+    updateMonthColor: (month, color) => send({ type: "updateMonthColor", month, color }),
   };
 
   return (
