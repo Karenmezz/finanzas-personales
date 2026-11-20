@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { bogotaDate } from "@/lib/usd";
 import { useRef, useState, type KeyboardEvent } from "react";
 import { dashboardSummary, isBarterCampaign, isPersonalIncome, selectFinanceArea } from "@/lib/finance-insights";
 import { SummaryCard } from "@/components/summary-card";
@@ -21,19 +22,23 @@ type Indicator = { titulo: string; valor: string; detalle: string };
 
 export default function DashboardPage() {
   const { data } = useFinance();
-  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [currentPeriod] = useState(() => bogotaDate().slice(0,7));
+  const [selection, setSelection] = useState("current");
+  const selectedYear = selection === "current" ? Number(currentPeriod.slice(0,4)) : Number(selection);
+  const selectedMonth = selection === "current" ? currentPeriod.slice(5,7) : undefined;
+  const periodLabel = selectedMonth ? new Intl.DateTimeFormat("es-CO", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${currentPeriod}-01T00:00:00Z`)) : String(selectedYear);
   const [tab, setTab] = useState<DashboardTab>("general");
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const years = availableYears(data);
   const scopedData = tab === "finances" ? selectFinanceArea(data, "finances") : tab === "content" ? selectFinanceArea(data, "content") : data;
-  const summary = dashboardSummary(scopedData, selectedYear);
+  const summary = dashboardSummary(scopedData, selectedYear, selectedMonth);
   const salaryTotal = summary.salaries.reduce((sum, salary) => sum + salary.value, 0);
   const brandTotal = summary.brandCampaigns.reduce((sum, campaign) => sum + campaign.value, 0);
   const movements = [
     ...data.campaigns.filter((campaign) => !isBarterCampaign(campaign)).flatMap((campaign) => campaign.payments.map((payment) => ({ id: `payment-${campaign.id}-${payment.id}`, concept: campaign.name, category: isPersonalIncome(campaign) ? "Salario" : campaign.brand, date: payment.date, amount: payment.amount, income: true }))),
     ...data.bills.filter((bill) => bill.paid).map((bill) => ({ id: `bill-${bill.id}`, concept: bill.name, category: "Cuenta de la casa", date: bill.dueDate, amount: bill.amount, income: false })),
     ...data.expenses.filter((expense) => expense.status === "Comprado").map((expense) => ({ id: `expense-${expense.id}`, concept: expense.concept, category: expense.category, date: expense.date, amount: expense.amount, income: false })),
-  ].filter((movement) => movement.date.startsWith(`${selectedYear}-`)).sort((a, b) => b.date.localeCompare(a.date));
+  ].filter((movement) => movement.date.startsWith(selectedMonth ? currentPeriod : `${selectedYear}-`)).sort((a, b) => b.date.localeCompare(a.date));
   const movementIncome = movements.filter((item) => item.income).reduce((sum, item) => sum + item.amount, 0);
   const movementExpenses = movements.filter((item) => !item.income).reduce((sum, item) => sum + item.amount, 0);
   const labels = {
@@ -41,7 +46,7 @@ export default function DashboardPage() {
     finances: "Tu salario, las cuentas de la casa y todos los gastos extras.",
     barter: "Productos y bonos recibidos, separados de tus ingresos en dinero.",
     content: "Campañas, publicaciones y cobros de tus colaboraciones.",
-    movements: "Ingresos recibidos y gastos pagados durante el año seleccionado.",
+    movements: "Ingresos recibidos y gastos pagados durante el período seleccionado.",
   };
   let indicators: Indicator[] = [
     { titulo: "Ingresos totales", valor: currency.format(summary.generated), detalle: "Salario y campañas de marcas" },
@@ -69,7 +74,7 @@ export default function DashboardPage() {
   ];
   if (tab === "movements") indicators = [
     { titulo: "Movimientos", valor: String(movements.length), detalle: "Ingresos y salidas registrados" },
-    { titulo: "Ingresos", valor: currency.format(movementIncome), detalle: "Pagos recibidos durante el año" },
+    { titulo: "Ingresos", valor: currency.format(movementIncome), detalle: "Pagos recibidos durante el período" },
     { titulo: "Gastos", valor: currency.format(movementExpenses), detalle: "Cuentas y extras pagados" },
     { titulo: "Balance", valor: currency.format(movementIncome - movementExpenses), detalle: "Ingresos menos salidas" },
   ];
@@ -86,8 +91,9 @@ export default function DashboardPage() {
   return <div className="mx-auto max-w-6xl">
     <header className="mb-4 flex flex-wrap items-end justify-between gap-4">
       <div><p className="text-sm font-semibold uppercase tracking-wider text-slate-500">Resumen general</p><h1 className="mt-2 text-3xl font-bold tracking-tight">Dashboard financiero</h1><p className="mt-2 text-slate-600">{labels[tab]}</p></div>
-      <label><span className="sr-only">Año</span><select aria-label="Año del Dashboard" className="h-10 min-w-[128px] rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold" value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
+      <label><span className="sr-only">Mes actual o año completo</span><select aria-label="Año del Dashboard" className="h-10 min-w-[128px] rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold" value={selection} onChange={(event) => setSelection(event.target.value)}><option value="current">Mes actual</option>{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
     </header>
+    <p className="mb-3 text-sm font-semibold capitalize text-slate-600" aria-label="Período del Dashboard">{periodLabel}{selectedMonth ? " · Resumen mensual" : " · Resumen anual"}</p>
     <div role="tablist" aria-label="Categorías del Dashboard" className="mb-4 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
       {tabs.map((item, index) => <button key={item.id} ref={(element) => { tabRefs.current[index] = element; }} type="button" role="tab" id={`dashboard-tab-${item.id}`} aria-controls="dashboard-panel" aria-selected={tab === item.id} tabIndex={tab === item.id ? 0 : -1} onKeyDown={(event) => navigateTabs(event, index)} onClick={() => setTab(item.id)} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 sm:flex-1 ${tab === item.id ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:bg-white"}`}>{item.label}</button>)}
     </div>
@@ -98,22 +104,22 @@ export default function DashboardPage() {
       {tab === "general" && <>
         <section className="mt-3 grid grid-cols-2 gap-2" aria-label="Origen de los ingresos">
           <SummaryCard tono="indigo" titulo="Ingresos personales" valor={currency.format(salaryTotal)} detalle="Ingresos guardados en tu cuenta" />
-          <SummaryCard tono="emerald" titulo="Campañas de marcas" valor={currency.format(brandTotal)} detalle={`${summary.brandCampaigns.length} campañas en el año seleccionado`} />
+          <SummaryCard tono="emerald" titulo="Campañas de marcas" valor={currency.format(brandTotal)} detalle={`${summary.brandCampaigns.length} campañas en el período seleccionado`} />
         </section>
-        <FinanceCharts data={data} year={selectedYear} />
-        <BrandRanking campaigns={summary.brandCampaigns} period={String(selectedYear)} scrollable />
+        <FinanceCharts data={data} year={selectedYear} month={selectedMonth} />
+        <BrandRanking campaigns={summary.brandCampaigns} period={periodLabel} scrollable />
       </>}
       {(tab === "general" || tab === "content" || tab === "barter") && summary.benefits.count > 0 && <section className="mt-4 rounded-2xl border border-violet-100 bg-violet-50/60 p-4" aria-label="Beneficios de canjes"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold text-violet-950">Canjes y beneficios</h2><Link className="button-secondary" href="/contenidos/canjes">Ver canjes</Link></div><p className="mt-2 text-sm text-violet-900">{summary.benefits.received} recibidos · {summary.benefits.pending} por recibir · {summary.benefits.withoutDate} sin fecha de publicación</p><p className="mt-2 text-xs text-slate-500">Los bonos y productos se controlan aparte del dinero ganado y del balance.</p></section>}
-      {tab === "barter" && summary.benefits.count === 0 && <p className="card mt-4 text-sm text-slate-500">Todavía no hay canjes en este año. <Link className="font-semibold text-violet-800" href="/contenidos/canjes">Registrar un canje</Link></p>}
+      {tab === "barter" && summary.benefits.count === 0 && <p className="card mt-4 text-sm text-slate-500">Todavía no hay canjes en este período. <Link className="font-semibold text-violet-800" href="/contenidos/canjes">Registrar un canje</Link></p>}
       {tab === "finances" && <>
         <section className="card mt-6" aria-label="Finanzas del hogar"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Casa y salario</h2><Link className="button-secondary" href="/">Abrir Finanzas</Link></div><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt>Salario pendiente de recibir</dt><dd className="font-semibold">{currency.format(summary.pending)}</dd></div><div className="flex justify-between gap-3"><dt>Cuentas y gastos pendientes</dt><dd className="font-semibold">{currency.format(summary.pendingExpenses)}</dd></div></dl></section>
-        <FinanceCharts data={scopedData} year={selectedYear} scope="finances" />
+        <FinanceCharts data={scopedData} year={selectedYear} month={selectedMonth} scope="finances" />
       </>}
       {tab === "content" && <>
         <section className="card mt-6"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Estado del contenido</h2><Link className="button-secondary" href="/contenidos">Campañas y calendario</Link></div><dl className="mt-4 grid gap-3 sm:grid-cols-3">{["Pendiente", "En producción", "Realizado"].map((status) => <div key={status} className="rounded-xl bg-slate-50 p-4"><dt className="text-sm text-slate-500">{status}</dt><dd className="mt-2 text-xl font-bold">{summary.contentCampaigns.filter((campaign) => campaign.status === status).length}</dd></div>)}</dl></section>
-        <FinanceCharts data={scopedData} year={selectedYear} scope="content" />
+        <FinanceCharts data={scopedData} year={selectedYear} month={selectedMonth} scope="content" />
       </>}
-      {tab === "movements" && <section className="card mt-6" aria-label="Últimos movimientos"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Últimos movimientos</h2><p className="mt-1 text-xs text-slate-500">Los pagos de cuentas usan la fecha de vencimiento registrada.</p></div><Link className="button-secondary" href="/movimientos">Ver historial</Link></div><div className="mt-4 divide-y divide-slate-100">{movements.slice(0, 12).map((movement) => <article key={movement.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><h3 className="break-words text-sm font-semibold">{movement.concept}</h3><p className="mt-1 text-xs text-slate-500">{movement.category} · {movement.date}</p></div><p className={`shrink-0 text-sm font-bold ${movement.income ? "text-emerald-700" : "text-rose-700"}`}>{movement.income ? "+" : "−"}{currency.format(movement.amount)}</p></article>)}</div>{movements.length === 0 && <p className="mt-4 text-sm text-slate-500">No hay movimientos registrados para este año.</p>}</section>}
+      {tab === "movements" && <section className="card mt-6" aria-label="Últimos movimientos"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Últimos movimientos</h2><p className="mt-1 text-xs text-slate-500">Los pagos de cuentas usan la fecha de vencimiento registrada.</p></div><Link className="button-secondary" href="/movimientos">Ver historial</Link></div><div className="mt-4 divide-y divide-slate-100">{movements.slice(0, 12).map((movement) => <article key={movement.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><h3 className="break-words text-sm font-semibold">{movement.concept}</h3><p className="mt-1 text-xs text-slate-500">{movement.category} · {movement.date}</p></div><p className={`shrink-0 text-sm font-bold ${movement.income ? "text-emerald-700" : "text-rose-700"}`}>{movement.income ? "+" : "−"}{currency.format(movement.amount)}</p></article>)}</div>{movements.length === 0 && <p className="mt-4 text-sm text-slate-500">No hay movimientos registrados para este período.</p>}</section>}
     </div>
   </div>;
 }
