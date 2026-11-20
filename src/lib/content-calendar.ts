@@ -16,6 +16,6 @@ export function calendarCells(period: string): (number | null)[] {
 }
 
 export function kanbanContents(campaigns: Campaign[], period: string, selectedDate: string | null, includeUndated = true) {
-  return campaigns.filter((campaign) => campaign.incomeType !== "personal" && (selectedDate ? campaign.contentDueDate === selectedDate : campaign.contentDueDate?.startsWith(`${period}-`) || (includeUndated && !campaign.contentDueDate)))
+  return campaigns.filter((campaign) => campaign.incomeType !== "personal" && (campaign.month ?? campaign.dueDate.slice(0,7)) === period && (selectedDate ? campaign.contentDueDate === selectedDate : Boolean(campaign.contentDueDate) || (includeUndated && !campaign.contentDueDate)))
     .sort((a,b) => (a.contentDueDate || "9999").localeCompare(b.contentDueDate || "9999") || a.name.localeCompare(b.name,"es"));
 }

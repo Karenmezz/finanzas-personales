@@ -84,3 +84,9 @@ test('dashboard combines salary, brand income, bills and extra expenses for the 
   assert.equal(summary.salaries.length, 1);
   assert.equal(summary.brandCampaigns.length, 1);
 });
+
+ test('dashboard monthly summary excludes other months while yearly summary includes them', () => {
+ const data={...empty(),campaigns:[campaign({id:'nov',value:100,payments:[{amount:40}]}),campaign({id:'dec',month:'2026-12',value:900,payments:[{amount:200}]})],bills:[{dueDate:'2026-11-15',amount:10,paid:true},{dueDate:'2026-12-15',amount:80,paid:true}],expenses:[{date:'2026-11-10',amount:5,status:'Comprado'},{date:'2026-12-10',amount:50,status:'Comprado'}]};
+ const month=dashboardSummary(data,2026,'11');assert.equal(month.generated,100);assert.equal(month.received,40);assert.equal(month.balance,25);assert.equal(month.brandCampaigns.length,1);
+ const year=dashboardSummary(data,2026);assert.equal(year.generated,1000);assert.equal(year.received,240);assert.equal(year.expenses,145);assert.equal(dashboardSummary(data,2027,'11').generated,0);
+ });

@@ -55,8 +55,9 @@ export function campaignsByBrand(campaigns: Campaign[]) {
   return [...brands.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
 }
 
-export function dashboardSummary(data: FinanceData, year: number) {
-  const selected = data.campaigns.filter((campaign) => (campaign.month ?? campaign.dueDate.slice(0, 7)).startsWith(`${year}-`));
+export function dashboardSummary(data: FinanceData, year: number, month?: string) {
+  const prefix = month ? `${year}-${month}` : `${year}-`;
+  const selected = data.campaigns.filter((campaign) => (campaign.month ?? campaign.dueDate.slice(0, 7)).startsWith(prefix));
   const campaigns = selected.filter((campaign) => !isBarterCampaign(campaign));
   const contentCampaigns = selected.filter((campaign) => !isPersonalIncome(campaign));
   const salaries = campaigns.filter(isPersonalIncome);
@@ -64,8 +65,8 @@ export function dashboardSummary(data: FinanceData, year: number) {
   const generated = campaigns.reduce((sum, campaign) => sum + campaign.value, 0);
   const received = campaigns.reduce((sum, campaign) => sum + campaign.payments.reduce((total, payment) => total + payment.amount, 0), 0);
   const pending = campaigns.reduce((sum, campaign) => sum + Math.max(campaign.value - campaign.payments.reduce((total, payment) => total + payment.amount, 0), 0), 0);
-  const bills = data.bills.filter((bill) => bill.dueDate.startsWith(`${year}-`));
-  const extras = data.expenses.filter((expense) => expense.date.startsWith(`${year}-`));
+  const bills = data.bills.filter((bill) => bill.dueDate.startsWith(prefix));
+  const extras = data.expenses.filter((expense) => expense.date.startsWith(prefix));
   const expenses = bills.filter((bill) => bill.paid).reduce((sum, bill) => sum + bill.amount, 0) + extras.filter((expense) => expense.status === "Comprado").reduce((sum, expense) => sum + expense.amount, 0);
   const pendingExpenses = bills.filter((bill) => !bill.paid).reduce((sum, bill) => sum + bill.amount, 0) + extras.filter((expense) => expense.status === "Pendiente").reduce((sum, expense) => sum + expense.amount, 0);
   return { generated, received, pending, expenses, pendingExpenses, balance: received - expenses, salaries, brandCampaigns, contentCampaigns, benefits: benefitSummary(contentCampaigns) };

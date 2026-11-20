@@ -29,8 +29,8 @@ const calendarMonths = [
 const socialColors = ["#ec4899", "#8b5cf6", "#06b6d4", "#f97316", "#22c55e", "#ef4444", "#3b82f6"];
 const compact = new Intl.NumberFormat("es-CO", { notation: "compact", maximumFractionDigits: 1 });
 
-export function FinanceCharts({ data, year, scope = "all" }: { data: FinanceData; year: number; scope?: "all" | "finances" | "content" }) {
-  const monthly = calendarMonths.map(([month, name]) => {
+export function FinanceCharts({ data, year, month: selectedMonth, scope = "all" }: { data: FinanceData; year: number; month?: string; scope?: "all" | "finances" | "content" }) {
+  const monthly = calendarMonths.filter(([month]) => !selectedMonth || month === selectedMonth).map(([month, name]) => {
     const period = `${year}-${month}`;
     const campaigns = data.campaigns.filter((item) => (item.month ?? item.dueDate.slice(0, 7)) === period && !isBarterCampaign(item));
     const generated = campaigns.reduce((sum, item) => sum + item.value, 0);
@@ -40,7 +40,7 @@ export function FinanceCharts({ data, year, scope = "all" }: { data: FinanceData
     return { month, name, generated, received, pending: generated - received, spent, balance: received - spent };
   });
 
-  const yearCampaigns = data.campaigns.filter((item) => (item.month ?? item.dueDate.slice(0, 7)).startsWith(`${year}-`) && !isPersonalIncome(item) && !isBarterCampaign(item));
+  const yearCampaigns = data.campaigns.filter((item) => (item.month ?? item.dueDate.slice(0, 7)).startsWith(selectedMonth ? `${year}-${selectedMonth}` : `${year}-`) && !isPersonalIncome(item) && !isBarterCampaign(item));
   const networks = Array.from(new Set(yearCampaigns.map((item) => item.network))).map((network) => ({
     name: network.replace("TikTok y Instagram", "TikTok + Instagram"),
     value: yearCampaigns.filter((item) => item.network === network).reduce((sum, item) => sum + item.value, 0),
@@ -50,7 +50,7 @@ export function FinanceCharts({ data, year, scope = "all" }: { data: FinanceData
     <section className="mt-7 space-y-6" aria-label="Gráficas financieras">
       <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Evolución anual</p><h2 className="mt-2 text-xl font-bold">Cómo transcurre cada mes</h2><p className="mt-1 text-sm text-slate-500">{scope === "finances" ? "Las barras muestran el salario; la línea, lo recibido menos los gastos pagados." : scope === "content" ? "Las barras muestran las campañas; la línea, los pagos recibidos." : "Las barras suman salario y campañas; la línea muestra el dinero recibido menos los gastos pagados."}</p></div>
+          <div><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">{selectedMonth ? "Resumen mensual" : "Evolución anual"}</p><h2 className="mt-2 text-xl font-bold">{selectedMonth ? "Cómo va este mes" : "Cómo transcurre cada mes"}</h2><p className="mt-1 text-sm text-slate-500">{scope === "finances" ? "Las barras muestran el salario; la línea, lo recibido menos los gastos pagados." : scope === "content" ? "Las barras muestran las campañas; la línea, los pagos recibidos." : "Las barras suman salario y campañas; la línea muestra el dinero recibido menos los gastos pagados."}</p></div>
           <div className="rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-500">Valores en pesos colombianos</div>
         </div>
         <div className="mt-7 h-[380px]">
@@ -74,7 +74,7 @@ export function FinanceCharts({ data, year, scope = "all" }: { data: FinanceData
 
       <div className="grid gap-6 xl:grid-cols-5">
         <article className={`rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7 ${scope === "finances" ? "xl:col-span-5" : "xl:col-span-3"}`}>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Estado de cobro</p><h2 className="mt-2 text-xl font-bold">Cobrado y pendiente por mes</h2><p className="mt-1 text-sm text-slate-500">Permite identificar en qué meses todavía falta recibir dinero.</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Estado de cobro</p><h2 className="mt-2 text-xl font-bold">{selectedMonth ? "Cobrado y pendiente del mes" : "Cobrado y pendiente por mes"}</h2><p className="mt-1 text-sm text-slate-500">Consulta cuánto se ha recibido y cuánto falta por cobrar en el período seleccionado.</p>
           <div className="mt-6 h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={monthly} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="name" tickLine={false} axisLine={false} /><YAxis tickFormatter={(value) => compact.format(Number(value))} tickLine={false} axisLine={false} width={50} /><Tooltip formatter={(value, name) => [currency.format(Number(value)), name === "received" ? "Cobrado" : "Pendiente"]} contentStyle={{ borderRadius: 16, borderColor: "#e2e8f0" }} /><Legend formatter={(value) => value === "received" ? "Cobrado" : "Pendiente"} /><Bar dataKey="received" stackId="money" fill="#86efac" radius={[0, 0, 5, 5]} /><Bar dataKey="pending" stackId="money" fill="#fde68a" radius={[7, 7, 0, 0]}><LabelList dataKey="pending" position="top" formatter={(value) => Number(value) > 0 ? compact.format(Number(value)) : ""} style={{ fill: "#92400e", fontSize: 10, fontWeight: 600 }} /></Bar></BarChart></ResponsiveContainer></div>
         </article>
 
