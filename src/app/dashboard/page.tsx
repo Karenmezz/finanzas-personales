@@ -107,7 +107,7 @@ export default function DashboardPage() {
           <SummaryCard tono="emerald" titulo="Campañas de marcas" valor={currency.format(brandTotal)} detalle={`${summary.brandCampaigns.length} campañas en el período seleccionado`} />
         </section>
         <FinanceCharts data={data} year={selectedYear} month={selectedMonth} />
-        <BrandRanking campaigns={summary.brandCampaigns} period={periodLabel} scrollable />
+        <BrandRanking campaigns={data.campaigns} period={periodLabel} paymentPeriod={selectedMonth ? currentPeriod : `${selectedYear}-`} throughDate={bogotaDate()} scrollable />
       </>}
       {(tab === "general" || tab === "content" || tab === "barter") && summary.benefits.count > 0 && <section className="mt-4 rounded-2xl border border-violet-100 bg-violet-50/60 p-4" aria-label="Beneficios de canjes"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold text-violet-950">Canjes y beneficios</h2><Link className="button-secondary" href="/contenidos/canjes">Ver canjes</Link></div><p className="mt-2 text-sm text-violet-900">{summary.benefits.received} recibidos · {summary.benefits.pending} por recibir · {summary.benefits.withoutDate} sin fecha de publicación</p><p className="mt-2 text-xs text-slate-500">Los bonos y productos se controlan aparte del dinero ganado y del balance.</p></section>}
       {tab === "barter" && summary.benefits.count === 0 && <p className="card mt-4 text-sm text-slate-500">Todavía no hay canjes en este período. <Link className="font-semibold text-violet-800" href="/contenidos/canjes">Registrar un canje</Link></p>}

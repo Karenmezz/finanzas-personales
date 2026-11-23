@@ -90,3 +90,14 @@ test('dashboard combines salary, brand income, bills and extra expenses for the 
  const month=dashboardSummary(data,2026,'11');assert.equal(month.generated,100);assert.equal(month.received,40);assert.equal(month.balance,25);assert.equal(month.brandCampaigns.length,1);
  const year=dashboardSummary(data,2026);assert.equal(year.generated,1000);assert.equal(year.received,240);assert.equal(year.expenses,145);assert.equal(dashboardSummary(data,2027,'11').generated,0);
  });
+
+test('brand ranking follows payment dates and updates after a new payment', () => {
+ const old=campaign({id:'old',month:'2026-10',brand:'Anterior',value:1000,payments:[{date:'2026-10-01',amount:900},{date:'2026-11-10',amount:100}]});
+ const current=campaign({id:'current',brand:'Actual',payments:[{date:'2026-11-20',amount:50},{date:'2026-11-30',amount:500}]});
+ const rows=[old,current,campaign({incomeType:'personal',payments:[{date:'2026-11-01',amount:99999}]}),campaign({brand:'Sin pago'}),campaign({collaborationType:'Canje',payments:[{date:'2026-11-01',amount:99999}]})];
+ assert.deepEqual(brandRanking(rows,'2026-11','2026-11-23').map(r=>[r.brand,r.received]),[['Anterior',100],['Actual',50]]);
+ current.payments.push({date:'2026-11-23',amount:200});
+ assert.deepEqual(brandRanking(rows,'2026-11','2026-11-23').map(r=>[r.brand,r.received]),[['Actual',250],['Anterior',100]]);
+ assert.equal(brandRanking(rows,'2026-','2026-11-23').find(r=>r.brand==='Anterior').received,1000);
+ assert.deepEqual(brandRanking(rows,'2027-01','2026-11-23'),[]);
+});
