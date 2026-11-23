@@ -8,13 +8,15 @@ export function isPersonalIncome(campaign: Campaign) {
   return campaign.incomeType === "personal";
 }
 
-export function brandRanking(campaigns: Campaign[]) {
+export function brandRanking(campaigns: Campaign[], paymentPeriod?: string, throughDate?: string) {
   const brands = new Map<string, { brand: string; received: number; agreed: number; count: number }>();
   for (const campaign of campaigns) {
     if (isPersonalIncome(campaign) || isBarterCampaign(campaign) || campaign.value <= 0) continue;
+    const payments = campaign.payments.filter((payment) => (!paymentPeriod || payment.date.startsWith(paymentPeriod)) && (!throughDate || payment.date <= throughDate));
+    if (paymentPeriod && !payments.some((payment) => payment.amount > 0)) continue;
     const key = normalizeName(campaign.brand);
     const row = brands.get(key) ?? { brand: campaign.brand.trim() || "Sin marca", received: 0, agreed: 0, count: 0 };
-    row.received += campaign.payments.reduce((sum, payment) => sum + payment.amount, 0);
+    row.received += payments.reduce((sum, payment) => sum + payment.amount, 0);
     row.agreed += campaign.value;
     row.count += 1;
     brands.set(key, row);
